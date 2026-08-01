@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Odour Device Production Tracker · Predictive Edge</title>
+
+  <!-- Inter typeface -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  />
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- ============================= HEADER / APP BAR ============================= -->
+  <header class="app-header">
+    <div class="app-header__inner">
+      <div class="brand">
+        <div class="brand__mark" aria-hidden="true">
+          <!-- Odour / air-sanitation mark -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 8h11a3 3 0 1 0-3-3" />
+            <path d="M3 12h15a3 3 0 1 1-3 3" />
+            <path d="M3 16h8a2.5 2.5 0 1 1-2.5 2.5" />
+          </svg>
+        </div>
+        <div class="brand__text">
+          <h1 class="brand__title">Odour Device Production Tracker</h1>
+          <p class="brand__subtitle">Predictive Edge Pvt. Ltd.</p>
+        </div>
+      </div>
+
+      <div class="header-meta">
+        <span class="header-meta__dot" aria-hidden="true"></span>
+        <span class="header-meta__label">Today</span>
+        <span class="header-meta__date" id="headerDate">—</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- ============================= SECTION 1 · SUMMARY CARDS ============================= -->
+    <section aria-labelledby="summary-heading">
+      <h2 id="summary-heading" class="visually-hidden">Production summary</h2>
+
+      <div class="cards-grid">
+        <!-- Card 1 -->
+        <article class="card" style="--stagger: 0">
+          <div class="card__top">
+            <span class="card__icon card__icon--primary" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18" />
+              </svg>
+            </span>
+          </div>
+          <div class="card__value tnum" id="cardLastSerial">—</div>
+          <div class="card__label">Last device serial no.</div>
+          <div class="card__sub">Most recent unit produced</div>
+        </article>
+
+        <!-- Card 2 -->
+        <article class="card" style="--stagger: 1">
+          <div class="card__top">
+            <span class="card__icon card__icon--success" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3a9 9 0 1 0 9 9" />
+                <path d="m8.5 12 2.5 2.5L21 5" />
+              </svg>
+            </span>
+          </div>
+          <div class="card__value tnum" id="cardTodayDevices">—</div>
+          <div class="card__label">Today's devices ready</div>
+          <div class="card__sub">Assembled &amp; serialised today</div>
+        </article>
+
+        <!-- Card 3 -->
+        <article class="card" style="--stagger: 2">
+          <div class="card__top">
+            <span class="card__icon card__icon--amber" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 8 12 3 3 8v8l9 5 9-5V8Z" />
+                <path d="m3 8 9 5 9-5M12 13v8" />
+              </svg>
+            </span>
+          </div>
+          <div class="card__value tnum" id="cardCasesStock">—</div>
+          <div class="card__label">Cases in stock</div>
+          <div class="card__sub">Empty 3D-printed enclosures</div>
+        </article>
+
+        <!-- Card 4 -->
+        <article class="card" style="--stagger: 3">
+          <div class="card__top">
+            <span class="card__icon card__icon--violet" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="m12 3 9 5-9 5-9-5 9-5Z" />
+                <path d="m3 12 9 5 9-5M3 16l9 5 9-5" />
+              </svg>
+            </span>
+          </div>
+          <div class="card__value tnum" id="cardTotalEntries">—</div>
+          <div class="card__label">Total production entries</div>
+          <div class="card__sub">Days logged to date</div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ============================= MAIN GRID · FORM + HISTORY ============================= -->
+    <div class="main-grid">
+      <!-- ===================== SECTION 2 · ENTRY FORM ===================== -->
+      <section class="panel" aria-labelledby="entry-heading">
+        <div class="panel__head">
+          <h2 id="entry-heading" class="panel__title">Log today's production</h2>
+          <p class="panel__desc">Enter two numbers — the serial number updates itself.</p>
+        </div>
+
+        <form id="productionForm" class="form" novalidate>
+          <!-- Date -->
+          <div class="field">
+            <label class="field__label" for="dateInput">Date</label>
+            <input type="date" id="dateInput" class="input" />
+            <p class="field__hint">Defaults to today. Change only if logging a past day.</p>
+          </div>
+
+          <!-- Devices ready -->
+          <div class="field" id="devicesField">
+            <label class="field__label" for="devicesInput">Devices ready today</label>
+            <input
+              type="number" id="devicesInput" class="input"
+              inputmode="numeric" min="1" step="1"
+              placeholder="e.g. 35" autocomplete="off"
+            />
+            <p class="field__error" id="devicesError"></p>
+          </div>
+
+          <!-- Cases in stock -->
+          <div class="field" id="casesField">
+            <label class="field__label" for="casesInput">Cases in stock</label>
+            <input
+              type="number" id="casesInput" class="input"
+              inputmode="numeric" min="0" step="1"
+              placeholder="e.g. 19" autocomplete="off"
+            />
+            <p class="field__error" id="casesError"></p>
+          </div>
+
+          <!-- Signature element: live serial calculation -->
+          <div class="serial-box" aria-live="polite">
+            <div class="serial-box__side">
+              <span class="serial-box__label">Current last serial</span>
+              <span class="serial-box__value serial-box__value--muted tnum" id="currentSerial">—</span>
+            </div>
+
+            <div class="serial-box__arrow" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
+              <span class="serial-box__delta" id="serialDelta"></span>
+            </div>
+
+            <div class="serial-box__side serial-box__side--new">
+              <span class="serial-box__label">New last serial</span>
+              <span class="serial-box__value tnum" id="newSerial">—</span>
+            </div>
+          </div>
+
+          <button type="submit" class="btn-primary" id="saveBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 12l5 5L20 7" />
+            </svg>
+            <span id="btnLabel">Save production</span>
+          </button>
+        </form>
+      </section>
+
+      <!-- ===================== SECTION 3 · HISTORY ===================== -->
+      <section class="panel" aria-labelledby="history-heading">
+        <div class="panel__head panel__head--row">
+          <div>
+            <h2 id="history-heading" class="panel__title">Production history</h2>
+            <p class="panel__desc">Newest first. <span id="resultCount"></span></p>
+          </div>
+
+          <div class="search">
+            <svg class="search__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            <input
+              type="search" id="searchInput" class="search__input"
+              placeholder="Search by date or serial…" autocomplete="off"
+              aria-label="Search production history by date or serial number"
+            />
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="table" id="historyTable">
+            <thead>
+              <tr>
+                <th scope="col">Last device SR</th>
+                <th scope="col">Date</th>
+                <th scope="col" class="ta-right">Devices ready</th>
+                <th scope="col" class="ta-right">Cases in stock</th>
+              </tr>
+            </thead>
+            <tbody id="historyBody"><!-- rows injected by script.js --></tbody>
+          </table>
+
+          <!-- Empty state -->
+          <div class="empty-state" id="historyEmpty" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            <p class="empty-state__title" id="emptyTitle">No matching entries</p>
+            <p class="empty-state__text" id="emptyText">Try a different date or serial number.</p>
+          </div>
+
+          <!-- Loading state (live mode) -->
+          <div class="table-status" id="historyLoading" hidden>
+            <span class="spinner" aria-hidden="true"></span>
+            <p class="table-status__text">Loading production data…</p>
+          </div>
+
+          <!-- Error state (live mode) -->
+          <div class="table-status" id="historyError" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 8v5" />
+              <path d="M12 16.5h.01" />
+              <path d="M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+            </svg>
+            <p class="table-status__title">Couldn't load data</p>
+            <p class="table-status__text">Check the connection to your Google Sheet, then try again.</p>
+            <button type="button" class="btn-ghost" id="retryBtn">Try again</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- ============================= TOAST ============================= -->
+  <div class="toast" id="appToast" role="status" aria-live="polite">
+    <span class="toast__icon" id="toastIcon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12l5 5L20 7" />
+      </svg>
+    </span>
+    <div class="toast__body">
+      <p class="toast__title" id="toastTitle">Production updated</p>
+      <p class="toast__text" id="toastText">Saved successfully.</p>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
