@@ -31,7 +31,7 @@
     rel="stylesheet"
   />
 
-  <link rel="stylesheet" href="style.css?v=2" />
+  <link rel="stylesheet" href="style.css?v=4" />
 </head>
 <body>
   <!-- ============================= HEADER / APP BAR ============================= -->
@@ -58,6 +58,11 @@
           <span class="header-meta__dot" aria-hidden="true"></span>
           <span class="header-meta__label">Today</span>
           <span class="header-meta__date" id="headerDate">—</span>
+        </div>
+
+        <div class="mode-badge" id="modeBadge" title="Data source">
+          <span class="mode-badge__dot" id="modeDot"></span>
+          <span class="mode-badge__label" id="modeLabel">—</span>
         </div>
 
         <button type="button" class="theme-toggle" id="themeToggle"
@@ -302,7 +307,7 @@
   </div>
 
   <!-- App logic (data layer, serial calc, table, validation) -->
-  <script src="script.js?v=2"></script>
+  <script src="script.js?v=4"></script>
 
   <!-- Theme toggle wiring (kept here so script.js stays untouched) -->
   <script>
