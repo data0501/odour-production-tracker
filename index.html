@@ -31,7 +31,7 @@
     rel="stylesheet"
   />
 
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=2" />
 </head>
 <body>
   <!-- ============================= HEADER / APP BAR ============================= -->
@@ -170,8 +170,8 @@
             <label class="field__label" for="devicesInput">Devices ready today</label>
             <input
               type="number" id="devicesInput" class="input"
-              inputmode="numeric" min="1" step="1"
-              placeholder="e.g. 35" autocomplete="off"
+              inputmode="numeric" min="0" step="1"
+              placeholder="e.g. 0 – 35" autocomplete="off"
             />
             <p class="field__error" id="devicesError"></p>
           </div>
@@ -302,7 +302,7 @@
   </div>
 
   <!-- App logic (data layer, serial calc, table, validation) -->
-  <script src="script.js"></script>
+  <script src="script.js?v=2"></script>
 
   <!-- Theme toggle wiring (kept here so script.js stays untouched) -->
   <script>
