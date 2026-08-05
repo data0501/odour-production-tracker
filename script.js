@@ -28,10 +28,8 @@ const CONFIG = {
   //   That is the only change needed. Leave it blank to stay in local demo mode.
   APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbx5tnjq-aHfULd8J-MP4ZERMuLhoRyT0TJ0HmrsrWry4oQaGorsXUhY5tI-G20tF_SU/exec',
 
-  // Used only when there is no data yet: the serial the very first entry builds
-  // on. If you already have production history, either pre-fill the Sheet with
-  // your real rows, or set this to your current last serial number.
-  SERIAL_BASELINE: 1600,
+  // Your real current last serial — the first new entry will build on this.
+  SERIAL_BASELINE: 1948,
 
   STORAGE_KEY: 'pe_odour_production_v1', // local persistence key (demo mode only)
 };
@@ -311,9 +309,9 @@ function renderHistoryTable(filterText = '') {
   els.historyEmpty.hidden = !empty;
   if (empty) {
     const noData = productionData.length === 0;
-    els.emptyTitle.textContent = noData ? 'No production logged yet' : 'No matching entries';
+    els.emptyTitle.textContent = noData ? 'No entries in your Sheet yet' : 'No matching entries';
     els.emptyText.textContent = noData
-      ? "Save today's numbers to get started."
+      ? 'Use the form on the left to log today\'s production — it will save directly to your Google Sheet.'
       : 'Try a different date or serial number.';
   }
 
@@ -514,6 +512,9 @@ async function init() {
   els.toastIcon = document.getElementById('toastIcon');
   els.toastTitle = document.getElementById('toastTitle');
   els.toastText = document.getElementById('toastText');
+  els.modeBadge = document.getElementById('modeBadge');
+  els.modeDot   = document.getElementById('modeDot');
+  els.modeLabel = document.getElementById('modeLabel');
 
   // Header + form date default to today (editable)
   els.headerDate.textContent = formatDate(todayISO());
@@ -538,7 +539,14 @@ async function init() {
 
 /** Load data and (re)paint everything. Handles loading + error states. */
 async function refresh() {
-  if (backendEnabled()) {
+  // Show mode badge immediately so the engineer always knows the data source.
+  const live = backendEnabled();
+  if (els.modeLabel) {
+    els.modeLabel.textContent = live ? 'Live' : 'Demo';
+    els.modeBadge.className   = 'mode-badge ' + (live ? 'mode-badge--live' : 'mode-badge--demo');
+  }
+
+  if (live) {
     setCards('…');
     showTableStatus('loading');
   }
