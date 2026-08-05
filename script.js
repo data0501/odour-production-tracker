@@ -26,7 +26,7 @@
 const CONFIG = {
   // ▶ TO GO LIVE: paste your deployed Apps Script Web App URL between the quotes.
   //   That is the only change needed. Leave it blank to stay in local demo mode.
-  APPS_SCRIPT_URL: '',
+  APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbx5tnjq-aHfULd8J-MP4ZERMuLhoRyT0TJ0HmrsrWry4oQaGorsXUhY5tI-G20tF_SU/exec',
 
   // Used only when there is no data yet: the serial the very first entry builds
   // on. If you already have production history, either pre-fill the Sheet with
