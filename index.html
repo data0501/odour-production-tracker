@@ -31,7 +31,7 @@
     rel="stylesheet"
   />
 
-  <link rel="stylesheet" href="style.css?v=4" />
+  <link rel="stylesheet" href="style.css?v=5" />
 </head>
 <body>
   <!-- ============================= HEADER / APP BAR ============================= -->
@@ -283,8 +283,8 @@
               <path d="M12 16.5h.01" />
               <path d="M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
             </svg>
-            <p class="table-status__title">Couldn't load data</p>
-            <p class="table-status__text">Check the connection to your Google Sheet, then try again.</p>
+            <p class="table-status__title">Google's server took too long</p>
+            <p class="table-status__text">This usually happens after the app sits idle for a while. The app already retried 3 times — hit Try again and it should load.</p>
             <button type="button" class="btn-ghost" id="retryBtn">Try again</button>
           </div>
         </div>
@@ -307,7 +307,7 @@
   </div>
 
   <!-- App logic (data layer, serial calc, table, validation) -->
-  <script src="script.js?v=4"></script>
+  <script src="script.js?v=5"></script>
 
   <!-- Theme toggle wiring (kept here so script.js stays untouched) -->
   <script>
