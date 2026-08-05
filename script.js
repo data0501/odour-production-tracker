@@ -26,12 +26,12 @@
 const CONFIG = {
   // ▶ TO GO LIVE: paste your deployed Apps Script Web App URL between the quotes.
   //   That is the only change needed. Leave it blank to stay in local demo mode.
-  APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbx5tnjq-aHfULd8J-MP4ZERMuLhoRyT0TJ0HmrsrWry4oQaGorsXUhY5tI-G20tF_SU/exec',
+  APPS_SCRIPT_URL: '',
 
   // Used only when there is no data yet: the serial the very first entry builds
   // on. If you already have production history, either pre-fill the Sheet with
   // your real rows, or set this to your current last serial number.
-  SERIAL_BASELINE: 1948,
+  SERIAL_BASELINE: 1600,
 
   STORAGE_KEY: 'pe_odour_production_v1', // local persistence key (demo mode only)
 };
@@ -105,6 +105,38 @@ function normalizeEntry(row) {
     casesInStock: Number(row.casesInStock) || 0,
     createdAt: row.createdAt ? String(row.createdAt) : new Date().toISOString(),
   };
+}
+
+/**
+ * Returns true when a date string ('YYYY-MM-DD') falls on a non-working day:
+ *   • every Sunday
+ *   • the 2nd Saturday of the month
+ *   • the 4th Saturday of the month
+ * Parsing with 'T00:00:00' forces local time, avoiding a midnight-UTC shift
+ * that can move the date backwards by one day on some phones.
+ */
+function isOffDay(dateStr) {
+  const d   = new Date(dateStr + 'T00:00:00');
+  const day = d.getDay();          // 0 = Sunday, 6 = Saturday
+  if (day === 0) return true;      // every Sunday
+  if (day === 6) {
+    // Math.ceil(date / 7) → 1 for days 1–7, 2 for 8–14, 3 for 15–21, etc.
+    const week = Math.ceil(d.getDate() / 7);
+    return week === 2 || week === 4; // 2nd or 4th Saturday
+  }
+  return false;
+}
+
+/**
+ * Last serial number from entries dated strictly BEFORE targetDate.
+ * Used when a backdated date is selected, so the serial calculator shows the
+ * correct baseline for that day rather than the current last serial.
+ */
+function getSerialAsOfDate(targetDate) {
+  const prior = productionData
+    .filter((e) => e.date < targetDate)
+    .sort((a, b) => b.date.localeCompare(a.date) || b.serial - a.serial);
+  return prior.length ? prior[0].serial : CONFIG.SERIAL_BASELINE;
 }
 
 /* ============================================================================
@@ -260,16 +292,18 @@ function renderHistoryTable(filterText = '') {
     });
 
   // Build all rows in one pass, then swap in — avoids layout thrash.
+  // Off days (2nd/4th Saturday, every Sunday) get a gray highlight.
   els.historyBody.innerHTML = rows
-    .map(
-      (e) => `
-      <tr>
+    .map((e) => {
+      const off = isOffDay(e.date);
+      return `
+      <tr${off ? ' class="row-offday"' : ''}>
         <td class="cell-serial">${e.serial}</td>
-        <td class="cell-muted">${formatDate(e.date)}</td>
+        <td class="cell-muted">${formatDate(e.date)}${off ? ' <span class="offday-badge">Off</span>' : ''}</td>
         <td class="ta-right cell-num">${e.devicesReady}</td>
         <td class="ta-right cell-num">${e.casesInStock}</td>
-      </tr>`
-    )
+      </tr>`;
+    })
     .join('');
 
   // Empty state — different message for "no data yet" vs "no search matches".
@@ -293,17 +327,27 @@ function renderHistoryTable(filterText = '') {
  * Current serial stays put; the new serial reflects "current + devices".
  */
 function updateSerialPreview() {
-  const current = getCurrentLastSerial();
+  // Use the selected date so backdated entries show the right baseline serial.
+  const selectedDate = (els.dateInput && els.dateInput.value) ? els.dateInput.value : todayISO();
+  const current = getSerialAsOfDate(selectedDate);
   const devices = toInt(els.devicesInput.value);
 
   els.currentSerial.textContent = current;
 
-  if (!Number.isNaN(devices) && devices > 0) {
+  if (!Number.isNaN(devices) && devices >= 0) {
     const next = calculateNextSerialNumber(current, devices);
     setSerialText(els.newSerial, next);
-    els.serialBox.classList.add('is-active');
-    els.newSerial.classList.remove('serial-box__value--muted');
-    els.serialDelta.textContent = `+${devices}`;
+    if (devices > 0) {
+      // Devices were assembled: show active state with +N delta pill.
+      els.serialBox.classList.add('is-active');
+      els.newSerial.classList.remove('serial-box__value--muted');
+      els.serialDelta.textContent = `+${devices}`;
+    } else {
+      // 0 devices: serial stays the same — no delta shown.
+      els.serialBox.classList.remove('is-active');
+      els.newSerial.classList.add('serial-box__value--muted');
+      els.serialDelta.textContent = '';
+    }
   } else {
     setSerialText(els.newSerial, current);
     els.serialBox.classList.remove('is-active');
@@ -336,13 +380,14 @@ function validateForm() {
   const devices = toInt(els.devicesInput.value);
   const cases = toInt(els.casesInput.value);
 
-  // Devices ready — must be a whole number of 1 or more.
+  // Devices ready — must be a whole number of 0 or more (0 means no assembly
+  // that day but cases were still counted).
   if (els.devicesInput.value.trim() === '') {
-    ok = setFieldError('devices', "Enter today's completed devices (1 or more).");
+    ok = setFieldError('devices', "Enter today's completed devices (0 or more).");
   } else if (Number.isNaN(devices)) {
     ok = setFieldError('devices', 'Use a whole number for devices ready.');
-  } else if (devices < 1) {
-    ok = setFieldError('devices', 'Devices ready must be at least 1.');
+  } else if (devices < 0) {
+    ok = setFieldError('devices', 'Devices ready cannot be negative.');
   } else {
     clearFieldError('devices');
   }
@@ -475,6 +520,9 @@ async function init() {
   els.dateInput.value = todayISO();
 
   // Events
+  // When the date changes, recalculate the serial baseline immediately so
+  // the engineer sees the correct "current serial" for that date.
+  els.dateInput.addEventListener('change', () => updateSerialPreview());
   els.devicesInput.addEventListener('input', () => {
     clearFieldError('devices');
     updateSerialPreview();
@@ -517,13 +565,15 @@ async function handleSubmit(event) {
 
   const devices = toInt(els.devicesInput.value);
   const cases = toInt(els.casesInput.value);
-  const current = getCurrentLastSerial();
+  const entryDate = els.dateInput.value || todayISO();
+  // Use the date-aware baseline so backdated entries carry the correct serial.
+  const current = getSerialAsOfDate(entryDate);
   const newSerial = calculateNextSerialNumber(current, devices);
 
   const entry = {
     id: `e-${Date.now()}`,
     serial: newSerial,
-    date: els.dateInput.value || todayISO(),
+    date: entryDate,
     devicesReady: devices,
     casesInStock: cases,
     createdAt: new Date().toISOString(),
