@@ -139,7 +139,50 @@ function getSerialAsOfDate(targetDate) {
 
 /* ============================================================================
    DATA LAYER  — the only functions that talk to a backend.
+
+   WHY fetchWithRetry?
+   Google Apps Script Web Apps run on Google's servers and go "cold" after
+   sitting idle (no requests for ~10–15 minutes). The first call after an idle
+   period can take 5–10 s while Google spins the server back up — longer than
+   the browser's default and enough to cause a spurious error even with a
+   perfectly good internet connection.
+
+   fetchWithRetry silently retries up to `retries` times with a pause between
+   each attempt. Most cold-start failures resolve on the second try, so the
+   user never sees the error at all.
 ============================================================================ */
+
+/**
+ * Fetch with automatic retries and a per-attempt timeout.
+ *
+ * @param {string} url      URL to request
+ * @param {object} options  Standard fetch() options
+ * @param {number} retries  Maximum number of attempts (default 3)
+ * @param {number} delay    Milliseconds to wait between attempts (default 1800)
+ * @param {number} timeout  Milliseconds before a single attempt is aborted (default 14000)
+ */
+async function fetchWithRetry(url, options = {}, retries = 3, delay = 1800, timeout = 14000) {
+  let lastErr;
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    // AbortController lets us cancel a hanging request after `timeout` ms.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
+    try {
+      const res = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timer);
+      return res;           // success — hand back the Response immediately
+    } catch (err) {
+      clearTimeout(timer);
+      lastErr = err;
+      if (attempt < retries) {
+        // Wait before the next attempt. The pause also gives a cold-starting
+        // Apps Script server a moment to finish warming up.
+        await new Promise((r) => setTimeout(r, delay));
+      }
+    }
+  }
+  throw lastErr;            // every attempt failed — caller decides what to do
+}
 
 /**
  * Load all production entries.
@@ -150,7 +193,7 @@ async function loadProductionData() {
   if (backendEnabled()) {
     // Cache-buster keeps the browser from serving a stale copy.
     const url = CONFIG.APPS_SCRIPT_URL + '?t=' + Date.now();
-    const res = await fetch(url, { method: 'GET' });
+    const res = await fetchWithRetry(url, { method: 'GET' });
     if (!res.ok) throw new Error('Load failed with status ' + res.status);
 
     let rows;
@@ -180,13 +223,13 @@ async function loadProductionData() {
  */
 async function saveProduction(entry) {
   if (backendEnabled()) {
-    const res = await fetch(CONFIG.APPS_SCRIPT_URL, {
+    const res = await fetchWithRetry(CONFIG.APPS_SCRIPT_URL, {
       method: 'POST',
       // text/plain keeps this a "simple" request, so the browser skips the CORS
       // pre-flight that Apps Script can't answer. The body is still JSON.
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(entry),
-    });
+    }, 2); // max 2 attempts for saves — avoids duplicate rows on a retry
     if (!res.ok) throw new Error('Save failed with status ' + res.status);
 
     productionData.push(entry); // optimistic: the row is now in the Sheet
