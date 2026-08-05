@@ -217,6 +217,30 @@ async function loadProductionData() {
 }
 
 /**
+ * After a save times out, reload the Sheet and verify the entry is there.
+ * Returns true if found, false if not.
+ * (Timeouts often hide successful saves — this confirms reality.)
+ */
+async function verifySaveSucceeded(entry) {
+  try {
+    // Give the server a moment to settle after the timeout.
+    await new Promise((r) => setTimeout(r, 2000));
+    // Reload from the Sheet.
+    await loadProductionData();
+    // Check if this entry (by serial, date, and devicesReady) now exists.
+    return productionData.some(
+      (e) =>
+        e.serial === entry.serial &&
+        e.date === entry.date &&
+        e.devicesReady === entry.devicesReady
+    );
+  } catch (_) {
+    // If we can't even load to verify, assume worst-case: the save failed.
+    return false;
+  }
+}
+
+/**
  * Persist a single new production entry.
  * LIVE: POST it to Apps Script (which appends a Sheet row).
  * DEMO: append to the local array + localStorage.
@@ -229,7 +253,7 @@ async function saveProduction(entry) {
       // pre-flight that Apps Script can't answer. The body is still JSON.
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(entry),
-    }, 2); // max 2 attempts for saves — avoids duplicate rows on a retry
+    }, 2, 1800, 20000); // max 2 attempts, 1.8s delay, 20s per-attempt timeout (saves can be slow)
     if (!res.ok) throw new Error('Save failed with status ' + res.status);
 
     productionData.push(entry); // optimistic: the row is now in the Sheet
@@ -635,9 +659,28 @@ async function handleSubmit(event) {
     await saveProduction(entry);
   } catch (err) {
     console.error(err);
+    // Save timed out. But Google may have successfully written it anyway.
+    // Verify by reloading the Sheet and checking if the entry is there.
+    const verified = await verifySaveSucceeded(entry);
     setSaving(false);
-    showToast('error', "Couldn't save", "Your entry wasn't saved. Check the connection and try again.");
-    return; // keep the form values so the engineer can retry
+
+    if (verified) {
+      // The entry IS in the Sheet — the timeout was just a slow response.
+      // Refresh the UI and treat it as success.
+      showToast('success', 'Saved (with delay)', 'Google was slow, but your entry is in the Sheet.');
+      updateDashboard();
+      renderHistoryTable(els.searchInput.value);
+      highlightNewestRow();
+      els.devicesInput.value = '';
+      els.casesInput.value = '';
+      els.dateInput.value = todayISO();
+      updateSerialPreview();
+      els.devicesInput.focus();
+    } else {
+      // Entry is NOT in the Sheet — the save genuinely failed.
+      showToast('error', "Couldn't save", "Your entry wasn't saved. Check your connection and try again.");
+    }
+    return; // either way, stop here
   }
   setSaving(false);
 
