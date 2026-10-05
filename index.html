@@ -31,7 +31,7 @@
     rel="stylesheet"
   />
 
-  <link rel="stylesheet" href="style.css?v=7" />
+  <link rel="stylesheet" href="style.css?v=8" />
 </head>
 <body>
   <!-- ============================= HEADER / APP BAR ============================= -->
@@ -116,7 +116,7 @@
           </div>
           <div class="card__value tnum" id="cardTotalDevicesReady">—</div>
           <div class="card__label">Total devices ready</div>
-          <div class="card__sub">Assembled, not yet dispatched</div>
+          <div class="card__sub">Assembled, not yet packed</div>
         </article>
 
         <!-- Card 3 -->
@@ -130,9 +130,9 @@
               </svg>
             </span>
           </div>
-          <div class="card__value tnum" id="cardTotalCasesStock">—</div>
-          <div class="card__label">Total cases in stock</div>
-          <div class="card__sub">Printed enclosures on hand</div>
+          <div class="card__value tnum" id="cardTotalDevicesPacked">—</div>
+          <div class="card__label">Total devices packed</div>
+          <div class="card__sub">Packed, not yet dispatched</div>
         </article>
 
         <!-- Card 4 -->
@@ -146,9 +146,9 @@
               </svg>
             </span>
           </div>
-          <div class="card__value tnum" id="cardTotalEntries">—</div>
-          <div class="card__label">Total production entries</div>
-          <div class="card__sub">Days logged to date</div>
+          <div class="card__value tnum" id="cardTotalCasesStock">—</div>
+          <div class="card__label">Total cases in stock</div>
+          <div class="card__sub">Printed enclosures on hand</div>
         </article>
       </div>
     </section>
@@ -179,6 +179,17 @@
               placeholder="e.g. 0 – 35" autocomplete="off"
             />
             <p class="field__error" id="devicesError"></p>
+          </div>
+
+          <!-- Devices packed today -->
+          <div class="field" id="packedField">
+            <label class="field__label" for="packedInput">Devices packed today</label>
+            <input
+              type="number" id="packedInput" class="input"
+              inputmode="numeric" min="0" step="1"
+              placeholder="e.g. 0" autocomplete="off"
+            />
+            <p class="field__error" id="packedError"></p>
           </div>
 
           <!-- Devices dispatched today -->
@@ -231,6 +242,10 @@
               <span class="totals-preview__value tnum" id="previewTotalReady">—</span>
             </div>
             <div class="totals-preview__item">
+              <span class="totals-preview__label">Total devices packed</span>
+              <span class="totals-preview__value tnum" id="previewTotalPacked">—</span>
+            </div>
+            <div class="totals-preview__item">
               <span class="totals-preview__label">Total cases in stock</span>
               <span class="totals-preview__value tnum" id="previewTotalStock">—</span>
             </div>
@@ -276,9 +291,11 @@
                 <th scope="col">Date</th>
                 <th scope="col" class="ta-right">Ready today</th>
                 <th scope="col" class="ta-right">Total ready</th>
+                <th scope="col" class="ta-right">Packed today</th>
+                <th scope="col" class="ta-right">Total packed</th>
+                <th scope="col" class="ta-right">Dispatched</th>
                 <th scope="col" class="ta-right">Printed today</th>
                 <th scope="col" class="ta-right">Total in stock</th>
-                <th scope="col" class="ta-right">Dispatched</th>
               </tr>
             </thead>
             <tbody id="historyBody"><!-- rows injected by script.js --></tbody>
@@ -333,7 +350,7 @@
   </div>
 
   <!-- App logic (data layer, serial calc, table, validation) -->
-  <script src="script.js?v=7"></script>
+  <script src="script.js?v=8"></script>
 
   <!-- Theme toggle wiring (kept here so script.js stays untouched) -->
   <script>
