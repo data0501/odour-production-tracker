@@ -29,12 +29,12 @@ const CONFIG = {
   APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbx5tnjq-aHfULd8J-MP4ZERMuLhoRyT0TJ0HmrsrWry4oQaGorsXUhY5tI-G20tF_SU/exec',
 
   // Your real current last serial — the first new entry will build on this.
-  SERIAL_BASELINE: 1948,
+  SERIAL_BASELINE: 2000,
 
   // Running-total starting points — set these to your real current figures.
   // The first new entry builds on them, exactly like SERIAL_BASELINE does.
-  TOTAL_DEVICES_READY_BASELINE: 0,   // assembled devices in stock, not yet dispatched
-  TOTAL_CASES_IN_STOCK_BASELINE: 0,  // printed cases currently in stock
+  TOTAL_DEVICES_READY_BASELINE: 94,   // assembled devices in stock, not yet dispatched
+  TOTAL_CASES_IN_STOCK_BASELINE: 443,  // printed cases currently in stock
 
   STORAGE_KEY: 'pe_odour_production_v1', // local persistence key (demo mode only)
 };
