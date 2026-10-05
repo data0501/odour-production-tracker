@@ -488,14 +488,14 @@ input[type="date"].input { min-height: 44px; }
 /* Live running-totals preview (below the serial box) */
 .totals-preview {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 8px;
 }
 .totals-preview__item {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  padding: 11px 13px;
+  padding: 10px 11px;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
@@ -508,7 +508,7 @@ input[type="date"].input { min-height: 44px; }
   color: var(--muted);
 }
 .totals-preview__value {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 800;
   letter-spacing: -.01em;
   line-height: 1;
@@ -589,7 +589,7 @@ input[type="date"].input { min-height: 44px; }
 .table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 720px;   /* 7 columns — scrolls horizontally on narrow screens */
+  min-width: 900px;   /* 9 columns — scrolls horizontally on narrow screens */
 }
 .table thead th {
   position: sticky;
