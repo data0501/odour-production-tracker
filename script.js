@@ -31,6 +31,11 @@ const CONFIG = {
   // Your real current last serial — the first new entry will build on this.
   SERIAL_BASELINE: 1948,
 
+  // Running-total starting points — set these to your real current figures.
+  // The first new entry builds on them, exactly like SERIAL_BASELINE does.
+  TOTAL_DEVICES_READY_BASELINE: 0,   // assembled devices in stock, not yet dispatched
+  TOTAL_CASES_IN_STOCK_BASELINE: 0,  // printed cases currently in stock
+
   STORAGE_KEY: 'pe_odour_production_v1', // local persistence key (demo mode only)
 };
 
@@ -94,13 +99,18 @@ function byNewest(a, b) {
 /** Coerce a row coming back from the Sheet into the shape/types the UI expects. */
 function normalizeEntry(row) {
   const dateRaw = row.date != null ? String(row.date) : '';
+  // casesPrinted is the new column name; fall back to the old "casesInStock".
+  const casesPrinted = Number(row.casesPrinted != null ? row.casesPrinted : row.casesInStock) || 0;
   return {
     id: row.id || `row-${row.serial}-${dateRaw}`,
     serial: Number(row.serial) || 0,
     // A date cell may arrive as a full ISO datetime — keep just the day.
     date: dateRaw.length >= 10 ? dateRaw.slice(0, 10) : dateRaw,
     devicesReady: Number(row.devicesReady) || 0,
-    casesInStock: Number(row.casesInStock) || 0,
+    totalDevicesReady: Number(row.totalDevicesReady) || 0,
+    casesPrinted: casesPrinted,
+    totalCasesInStock: Number(row.totalCasesInStock) || 0,
+    devicesDispatched: Number(row.devicesDispatched) || 0,
     createdAt: row.createdAt ? String(row.createdAt) : new Date().toISOString(),
   };
 }
@@ -130,11 +140,27 @@ function isOffDay(dateStr) {
  * Used when a backdated date is selected, so the serial calculator shows the
  * correct baseline for that day rather than the current last serial.
  */
-function getSerialAsOfDate(targetDate) {
+function getStateAsOfDate(targetDate) {
   const prior = productionData
-    .filter((e) => e.date < targetDate)
-    .sort((a, b) => b.date.localeCompare(a.date) || b.serial - a.serial);
-  return prior.length ? prior[0].serial : CONFIG.SERIAL_BASELINE;
+    .filter((e) => e.date <= targetDate) // on or before the target date
+    .sort((a, b) =>
+      b.date.localeCompare(a.date)
+      || (new Date(b.createdAt) - new Date(a.createdAt))
+      || b.serial - a.serial
+    );
+  if (prior.length) {
+    const p = prior[0];
+    return {
+      serial: p.serial,
+      totalDevicesReady: p.totalDevicesReady,
+      totalCasesInStock: p.totalCasesInStock,
+    };
+  }
+  return {
+    serial: CONFIG.SERIAL_BASELINE,
+    totalDevicesReady: CONFIG.TOTAL_DEVICES_READY_BASELINE,
+    totalCasesInStock: CONFIG.TOTAL_CASES_IN_STOCK_BASELINE,
+  };
 }
 
 /* ============================================================================
@@ -287,29 +313,37 @@ function writeLocal(data) {
    BUSINESS LOGIC
 ============================================================================ */
 
-/** The serial number of the most recent unit, or the baseline if none exist. */
+/** The chronologically latest entry (by date, then createdAt), or null. */
+function latestEntry() {
+  if (!productionData.length) return null;
+  return productionData.slice().sort((a, b) =>
+    b.date.localeCompare(a.date)
+    || (new Date(b.createdAt) - new Date(a.createdAt))
+    || b.serial - a.serial
+  )[0];
+}
+
+/** Latest device serial, or the baseline if there are no entries yet. */
 function getCurrentLastSerial() {
-  if (!productionData.length) return CONFIG.SERIAL_BASELINE;
-  return productionData.slice().sort(byNewest)[0].serial;
+  const e = latestEntry();
+  return e ? e.serial : CONFIG.SERIAL_BASELINE;
+}
+
+/** Latest running total of assembled-but-not-dispatched devices. */
+function getLatestTotalDevicesReady() {
+  const e = latestEntry();
+  return e ? e.totalDevicesReady : CONFIG.TOTAL_DEVICES_READY_BASELINE;
+}
+
+/** Latest running total of printed cases in stock. */
+function getLatestTotalCasesInStock() {
+  const e = latestEntry();
+  return e ? e.totalCasesInStock : CONFIG.TOTAL_CASES_IN_STOCK_BASELINE;
 }
 
 /** New last serial = current last serial + devices produced. */
 function calculateNextSerialNumber(currentSerial, devicesReady) {
   return currentSerial + devicesReady;
-}
-
-/** Total devices completed today (sums any entries dated today). */
-function getTodaysDevices() {
-  const today = todayISO();
-  return productionData
-    .filter((e) => e.date === today)
-    .reduce((sum, e) => sum + e.devicesReady, 0);
-}
-
-/** Latest known "cases in stock" level (a snapshot, not a running total). */
-function getLatestCasesInStock() {
-  if (!productionData.length) return 0;
-  return productionData.slice().sort(byNewest)[0].casesInStock;
 }
 
 /* ============================================================================
@@ -319,16 +353,16 @@ function getLatestCasesInStock() {
 /** Set all four card values at once (used for loading / error placeholders). */
 function setCards(text) {
   els.cardLastSerial.textContent = text;
-  els.cardTodayDevices.textContent = text;
-  els.cardCasesStock.textContent = text;
+  els.cardTotalDevicesReady.textContent = text;
+  els.cardTotalCasesStock.textContent = text;
   els.cardTotalEntries.textContent = text;
 }
 
 /** Update the four summary cards from current state. */
 function updateDashboard() {
   els.cardLastSerial.textContent = getCurrentLastSerial();
-  els.cardTodayDevices.textContent = getTodaysDevices();
-  els.cardCasesStock.textContent = getLatestCasesInStock();
+  els.cardTotalDevicesReady.textContent = getLatestTotalDevicesReady();
+  els.cardTotalCasesStock.textContent = getLatestTotalCasesInStock();
   els.cardTotalEntries.textContent = productionData.length;
 }
 
@@ -366,7 +400,10 @@ function renderHistoryTable(filterText = '') {
         <td class="cell-serial">${e.serial}</td>
         <td class="cell-muted">${formatDate(e.date)}${off ? ' <span class="offday-badge">Off</span>' : ''}</td>
         <td class="ta-right cell-num">${e.devicesReady}</td>
-        <td class="ta-right cell-num">${e.casesInStock}</td>
+        <td class="ta-right cell-num cell-strong">${e.totalDevicesReady}</td>
+        <td class="ta-right cell-num">${e.casesPrinted}</td>
+        <td class="ta-right cell-num cell-strong">${e.totalCasesInStock}</td>
+        <td class="ta-right cell-num">${e.devicesDispatched}</td>
       </tr>`;
     })
     .join('');
@@ -392,33 +429,37 @@ function renderHistoryTable(filterText = '') {
  * Current serial stays put; the new serial reflects "current + devices".
  */
 function updateSerialPreview() {
-  // Use the selected date so backdated entries show the right baseline serial.
+  // Use the selected date so backdated entries show the right baselines.
   const selectedDate = (els.dateInput && els.dateInput.value) ? els.dateInput.value : todayISO();
-  const current = getSerialAsOfDate(selectedDate);
-  const devices = toInt(els.devicesInput.value);
+  const base = getStateAsOfDate(selectedDate);
 
-  els.currentSerial.textContent = current;
+  // Clamp typed values to >= 0; treat blank/invalid as 0 for the live preview.
+  const devRaw = toInt(els.devicesInput.value);
+  const dispRaw = toInt(els.dispatchedInput.value);
+  const prRaw = toInt(els.casesInput.value);
+  const devices = Number.isNaN(devRaw) ? 0 : Math.max(0, devRaw);
+  const dispatched = Number.isNaN(dispRaw) ? 0 : Math.max(0, dispRaw);
+  const printed = Number.isNaN(prRaw) ? 0 : Math.max(0, prRaw);
 
-  if (!Number.isNaN(devices) && devices >= 0) {
-    const next = calculateNextSerialNumber(current, devices);
-    setSerialText(els.newSerial, next);
-    if (devices > 0) {
-      // Devices were assembled: show active state with +N delta pill.
-      els.serialBox.classList.add('is-active');
-      els.newSerial.classList.remove('serial-box__value--muted');
-      els.serialDelta.textContent = `+${devices}`;
-    } else {
-      // 0 devices: serial stays the same — no delta shown.
-      els.serialBox.classList.remove('is-active');
-      els.newSerial.classList.add('serial-box__value--muted');
-      els.serialDelta.textContent = '';
-    }
+  // --- Serial box (hero) ---
+  els.currentSerial.textContent = base.serial;
+  const nextSerial = calculateNextSerialNumber(base.serial, devices);
+  setSerialText(els.newSerial, nextSerial);
+  if (devices > 0) {
+    els.serialBox.classList.add('is-active');
+    els.newSerial.classList.remove('serial-box__value--muted');
+    els.serialDelta.textContent = `+${devices}`;
   } else {
-    setSerialText(els.newSerial, current);
     els.serialBox.classList.remove('is-active');
     els.newSerial.classList.add('serial-box__value--muted');
     els.serialDelta.textContent = '';
   }
+
+  // --- Running totals preview ---
+  const newTotalReady = base.totalDevicesReady + devices - dispatched;
+  const newTotalStock = base.totalCasesInStock + printed;
+  if (els.previewTotalReady) els.previewTotalReady.textContent = newTotalReady;
+  if (els.previewTotalStock) els.previewTotalStock.textContent = newTotalStock;
 }
 
 /** Update a serial value and pulse it briefly when it actually changes. */
@@ -443,10 +484,10 @@ function validateForm() {
   let ok = true;
 
   const devices = toInt(els.devicesInput.value);
-  const cases = toInt(els.casesInput.value);
+  const dispatched = toInt(els.dispatchedInput.value);
+  const printed = toInt(els.casesInput.value);
 
-  // Devices ready — must be a whole number of 0 or more (0 means no assembly
-  // that day but cases were still counted).
+  // Devices ready today — whole number, 0 or more (0 = no assembly that day).
   if (els.devicesInput.value.trim() === '') {
     ok = setFieldError('devices', "Enter today's completed devices (0 or more).");
   } else if (Number.isNaN(devices)) {
@@ -457,13 +498,30 @@ function validateForm() {
     clearFieldError('devices');
   }
 
-  // Cases in stock — must be a whole number of 0 or more.
+  // Devices dispatched today — whole number, 0 or more, and not more than are
+  // available (baseline-on-that-date + today's ready).
+  const entryDate = els.dateInput.value || todayISO();
+  const baseReady = getStateAsOfDate(entryDate).totalDevicesReady;
+  const available = baseReady + (!Number.isNaN(devices) && devices > 0 ? devices : 0);
+  if (els.dispatchedInput.value.trim() === '') {
+    ok = setFieldError('dispatched', 'Enter devices dispatched today (0 if none).') && ok;
+  } else if (Number.isNaN(dispatched)) {
+    ok = setFieldError('dispatched', 'Use a whole number for devices dispatched.') && ok;
+  } else if (dispatched < 0) {
+    ok = setFieldError('dispatched', 'Devices dispatched cannot be negative.') && ok;
+  } else if (dispatched > available) {
+    ok = setFieldError('dispatched', `Only ${available} available to dispatch.`) && ok;
+  } else {
+    clearFieldError('dispatched');
+  }
+
+  // Cases printed today — whole number, 0 or more.
   if (els.casesInput.value.trim() === '') {
-    ok = setFieldError('cases', 'Enter the empty cases now in stock (0 or more).') && ok;
-  } else if (Number.isNaN(cases)) {
-    ok = setFieldError('cases', 'Use a whole number for cases in stock.') && ok;
-  } else if (cases < 0) {
-    ok = setFieldError('cases', "Cases in stock can't be negative.") && ok;
+    ok = setFieldError('cases', 'Enter cases printed today (0 or more).') && ok;
+  } else if (Number.isNaN(printed)) {
+    ok = setFieldError('cases', 'Use a whole number for cases printed.') && ok;
+  } else if (printed < 0) {
+    ok = setFieldError('cases', 'Cases printed cannot be negative.') && ok;
   } else {
     clearFieldError('cases');
   }
@@ -471,16 +529,20 @@ function validateForm() {
   return ok;
 }
 
+// Map each field key to its [fieldEl, errorEl] pair.
+function fieldPair(name) {
+  if (name === 'devices') return [els.devicesField, els.devicesError];
+  if (name === 'dispatched') return [els.dispatchedField, els.dispatchedError];
+  return [els.casesField, els.casesError];
+}
 function setFieldError(name, message) {
-  const field = name === 'devices' ? els.devicesField : els.casesField;
-  const error = name === 'devices' ? els.devicesError : els.casesError;
+  const [field, error] = fieldPair(name);
   field.classList.add('invalid');
   error.textContent = message;
   return false; // returns falsy so callers can chain `&& ok`
 }
 function clearFieldError(name) {
-  const field = name === 'devices' ? els.devicesField : els.casesField;
-  const error = name === 'devices' ? els.devicesError : els.casesError;
+  const [field, error] = fieldPair(name);
   field.classList.remove('invalid');
   error.textContent = '';
 }
@@ -544,18 +606,23 @@ async function init() {
   // Cache DOM
   els.headerDate = document.getElementById('headerDate');
   els.cardLastSerial = document.getElementById('cardLastSerial');
-  els.cardTodayDevices = document.getElementById('cardTodayDevices');
-  els.cardCasesStock = document.getElementById('cardCasesStock');
+  els.cardTotalDevicesReady = document.getElementById('cardTotalDevicesReady');
+  els.cardTotalCasesStock = document.getElementById('cardTotalCasesStock');
   els.cardTotalEntries = document.getElementById('cardTotalEntries');
 
   els.form = document.getElementById('productionForm');
   els.dateInput = document.getElementById('dateInput');
   els.devicesInput = document.getElementById('devicesInput');
+  els.dispatchedInput = document.getElementById('dispatchedInput');
   els.casesInput = document.getElementById('casesInput');
   els.devicesField = document.getElementById('devicesField');
+  els.dispatchedField = document.getElementById('dispatchedField');
   els.casesField = document.getElementById('casesField');
   els.devicesError = document.getElementById('devicesError');
+  els.dispatchedError = document.getElementById('dispatchedError');
   els.casesError = document.getElementById('casesError');
+  els.previewTotalReady = document.getElementById('previewTotalReady');
+  els.previewTotalStock = document.getElementById('previewTotalStock');
   els.saveBtn = document.getElementById('saveBtn');
   els.btnLabel = document.getElementById('btnLabel');
 
@@ -595,7 +662,14 @@ async function init() {
     clearFieldError('devices');
     updateSerialPreview();
   });
-  els.casesInput.addEventListener('input', () => clearFieldError('cases'));
+  els.dispatchedInput.addEventListener('input', () => {
+    clearFieldError('dispatched');
+    updateSerialPreview();
+  });
+  els.casesInput.addEventListener('input', () => {
+    clearFieldError('cases');
+    updateSerialPreview();
+  });
   els.searchInput.addEventListener('input', (e) => renderHistoryTable(e.target.value));
   els.form.addEventListener('submit', handleSubmit);
   els.retryBtn.addEventListener('click', refresh);
@@ -639,18 +713,25 @@ async function handleSubmit(event) {
   if (!validateForm()) return;
 
   const devices = toInt(els.devicesInput.value);
-  const cases = toInt(els.casesInput.value);
+  const dispatched = toInt(els.dispatchedInput.value);
+  const printed = toInt(els.casesInput.value);
   const entryDate = els.dateInput.value || todayISO();
-  // Use the date-aware baseline so backdated entries carry the correct serial.
-  const current = getSerialAsOfDate(entryDate);
-  const newSerial = calculateNextSerialNumber(current, devices);
+
+  // Date-aware baseline so backdated entries carry the correct running figures.
+  const base = getStateAsOfDate(entryDate);
+  const newSerial = calculateNextSerialNumber(base.serial, devices);
+  const newTotalReady = base.totalDevicesReady + devices - dispatched;
+  const newTotalStock = base.totalCasesInStock + printed;
 
   const entry = {
     id: `e-${Date.now()}`,
     serial: newSerial,
     date: entryDate,
     devicesReady: devices,
-    casesInStock: cases,
+    totalDevicesReady: newTotalReady,
+    casesPrinted: printed,
+    totalCasesInStock: newTotalStock,
+    devicesDispatched: dispatched,
     createdAt: new Date().toISOString(),
   };
 
@@ -672,6 +753,7 @@ async function handleSubmit(event) {
       renderHistoryTable(els.searchInput.value);
       highlightNewestRow();
       els.devicesInput.value = '';
+      els.dispatchedInput.value = '';
       els.casesInput.value = '';
       els.dateInput.value = todayISO();
       updateSerialPreview();
@@ -691,6 +773,7 @@ async function handleSubmit(event) {
 
   // Reset typed fields; keep date on today; recompute preview
   els.devicesInput.value = '';
+  els.dispatchedInput.value = '';
   els.casesInput.value = '';
   els.dateInput.value = todayISO();
   updateSerialPreview();
