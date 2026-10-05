@@ -29,12 +29,13 @@ const CONFIG = {
   APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbx5tnjq-aHfULd8J-MP4ZERMuLhoRyT0TJ0HmrsrWry4oQaGorsXUhY5tI-G20tF_SU/exec',
 
   // Your real current last serial — the first new entry will build on this.
-  SERIAL_BASELINE: 2000,
+  SERIAL_BASELINE: 1948,
 
   // Running-total starting points — set these to your real current figures.
   // The first new entry builds on them, exactly like SERIAL_BASELINE does.
-  TOTAL_DEVICES_READY_BASELINE: 94,   // assembled devices in stock, not yet dispatched
-  TOTAL_CASES_IN_STOCK_BASELINE: 443,  // printed cases currently in stock
+  TOTAL_DEVICES_READY_BASELINE: 0,   // assembled devices on hand, not yet packed
+  TOTAL_DEVICES_PACKED_BASELINE: 0,  // packed devices on hand, not yet dispatched
+  TOTAL_CASES_IN_STOCK_BASELINE: 0,  // printed cases currently in stock
 
   STORAGE_KEY: 'pe_odour_production_v1', // local persistence key (demo mode only)
 };
@@ -108,6 +109,8 @@ function normalizeEntry(row) {
     date: dateRaw.length >= 10 ? dateRaw.slice(0, 10) : dateRaw,
     devicesReady: Number(row.devicesReady) || 0,
     totalDevicesReady: Number(row.totalDevicesReady) || 0,
+    devicesPacked: Number(row.devicesPacked) || 0,
+    totalDevicesPacked: Number(row.totalDevicesPacked) || 0,
     casesPrinted: casesPrinted,
     totalCasesInStock: Number(row.totalCasesInStock) || 0,
     devicesDispatched: Number(row.devicesDispatched) || 0,
@@ -153,12 +156,14 @@ function getStateAsOfDate(targetDate) {
     return {
       serial: p.serial,
       totalDevicesReady: p.totalDevicesReady,
+      totalDevicesPacked: p.totalDevicesPacked,
       totalCasesInStock: p.totalCasesInStock,
     };
   }
   return {
     serial: CONFIG.SERIAL_BASELINE,
     totalDevicesReady: CONFIG.TOTAL_DEVICES_READY_BASELINE,
+    totalDevicesPacked: CONFIG.TOTAL_DEVICES_PACKED_BASELINE,
     totalCasesInStock: CONFIG.TOTAL_CASES_IN_STOCK_BASELINE,
   };
 }
@@ -335,6 +340,12 @@ function getLatestTotalDevicesReady() {
   return e ? e.totalDevicesReady : CONFIG.TOTAL_DEVICES_READY_BASELINE;
 }
 
+/** Latest running total of packed-but-not-dispatched devices. */
+function getLatestTotalDevicesPacked() {
+  const e = latestEntry();
+  return e ? e.totalDevicesPacked : CONFIG.TOTAL_DEVICES_PACKED_BASELINE;
+}
+
 /** Latest running total of printed cases in stock. */
 function getLatestTotalCasesInStock() {
   const e = latestEntry();
@@ -354,16 +365,16 @@ function calculateNextSerialNumber(currentSerial, devicesReady) {
 function setCards(text) {
   els.cardLastSerial.textContent = text;
   els.cardTotalDevicesReady.textContent = text;
+  els.cardTotalDevicesPacked.textContent = text;
   els.cardTotalCasesStock.textContent = text;
-  els.cardTotalEntries.textContent = text;
 }
 
 /** Update the four summary cards from current state. */
 function updateDashboard() {
   els.cardLastSerial.textContent = getCurrentLastSerial();
   els.cardTotalDevicesReady.textContent = getLatestTotalDevicesReady();
+  els.cardTotalDevicesPacked.textContent = getLatestTotalDevicesPacked();
   els.cardTotalCasesStock.textContent = getLatestTotalCasesInStock();
-  els.cardTotalEntries.textContent = productionData.length;
 }
 
 /** Toggle the history region between table / loading / error. */
@@ -401,9 +412,11 @@ function renderHistoryTable(filterText = '') {
         <td class="cell-muted">${formatDate(e.date)}${off ? ' <span class="offday-badge">Off</span>' : ''}</td>
         <td class="ta-right cell-num">${e.devicesReady}</td>
         <td class="ta-right cell-num cell-strong">${e.totalDevicesReady}</td>
+        <td class="ta-right cell-num">${e.devicesPacked}</td>
+        <td class="ta-right cell-num cell-strong">${e.totalDevicesPacked}</td>
+        <td class="ta-right cell-num">${e.devicesDispatched}</td>
         <td class="ta-right cell-num">${e.casesPrinted}</td>
         <td class="ta-right cell-num cell-strong">${e.totalCasesInStock}</td>
-        <td class="ta-right cell-num">${e.devicesDispatched}</td>
       </tr>`;
     })
     .join('');
@@ -435,9 +448,11 @@ function updateSerialPreview() {
 
   // Clamp typed values to >= 0; treat blank/invalid as 0 for the live preview.
   const devRaw = toInt(els.devicesInput.value);
+  const packRaw = toInt(els.packedInput.value);
   const dispRaw = toInt(els.dispatchedInput.value);
   const prRaw = toInt(els.casesInput.value);
   const devices = Number.isNaN(devRaw) ? 0 : Math.max(0, devRaw);
+  const packed = Number.isNaN(packRaw) ? 0 : Math.max(0, packRaw);
   const dispatched = Number.isNaN(dispRaw) ? 0 : Math.max(0, dispRaw);
   const printed = Number.isNaN(prRaw) ? 0 : Math.max(0, prRaw);
 
@@ -456,9 +471,14 @@ function updateSerialPreview() {
   }
 
   // --- Running totals preview ---
-  const newTotalReady = base.totalDevicesReady + devices - dispatched;
+  // ready:  + assembled  − packed
+  // packed: + packed     − dispatched
+  // stock:  + printed
+  const newTotalReady = base.totalDevicesReady + devices - packed;
+  const newTotalPacked = base.totalDevicesPacked + packed - dispatched;
   const newTotalStock = base.totalCasesInStock + printed;
   if (els.previewTotalReady) els.previewTotalReady.textContent = newTotalReady;
+  if (els.previewTotalPacked) els.previewTotalPacked.textContent = newTotalPacked;
   if (els.previewTotalStock) els.previewTotalStock.textContent = newTotalStock;
 }
 
@@ -484,8 +504,14 @@ function validateForm() {
   let ok = true;
 
   const devices = toInt(els.devicesInput.value);
+  const packed = toInt(els.packedInput.value);
   const dispatched = toInt(els.dispatchedInput.value);
   const printed = toInt(els.casesInput.value);
+
+  const entryDate = els.dateInput.value || todayISO();
+  const base = getStateAsOfDate(entryDate);
+  const safeDevices = !Number.isNaN(devices) && devices > 0 ? devices : 0;
+  const safePacked = !Number.isNaN(packed) && packed > 0 ? packed : 0;
 
   // Devices ready today — whole number, 0 or more (0 = no assembly that day).
   if (els.devicesInput.value.trim() === '') {
@@ -498,19 +524,32 @@ function validateForm() {
     clearFieldError('devices');
   }
 
-  // Devices dispatched today — whole number, 0 or more, and not more than are
-  // available (baseline-on-that-date + today's ready).
-  const entryDate = els.dateInput.value || todayISO();
-  const baseReady = getStateAsOfDate(entryDate).totalDevicesReady;
-  const available = baseReady + (!Number.isNaN(devices) && devices > 0 ? devices : 0);
+  // Devices packed today — can't pack more loose devices than are available
+  // (ready on that date + today's newly assembled).
+  const availableToPack = base.totalDevicesReady + safeDevices;
+  if (els.packedInput.value.trim() === '') {
+    ok = setFieldError('packed', 'Enter devices packed today (0 if none).') && ok;
+  } else if (Number.isNaN(packed)) {
+    ok = setFieldError('packed', 'Use a whole number for devices packed.') && ok;
+  } else if (packed < 0) {
+    ok = setFieldError('packed', 'Devices packed cannot be negative.') && ok;
+  } else if (packed > availableToPack) {
+    ok = setFieldError('packed', `Only ${availableToPack} ready to pack.`) && ok;
+  } else {
+    clearFieldError('packed');
+  }
+
+  // Devices dispatched today — can't dispatch more than are packed
+  // (packed on that date + today's newly packed).
+  const availableToDispatch = base.totalDevicesPacked + safePacked;
   if (els.dispatchedInput.value.trim() === '') {
     ok = setFieldError('dispatched', 'Enter devices dispatched today (0 if none).') && ok;
   } else if (Number.isNaN(dispatched)) {
     ok = setFieldError('dispatched', 'Use a whole number for devices dispatched.') && ok;
   } else if (dispatched < 0) {
     ok = setFieldError('dispatched', 'Devices dispatched cannot be negative.') && ok;
-  } else if (dispatched > available) {
-    ok = setFieldError('dispatched', `Only ${available} available to dispatch.`) && ok;
+  } else if (dispatched > availableToDispatch) {
+    ok = setFieldError('dispatched', `Only ${availableToDispatch} packed to dispatch.`) && ok;
   } else {
     clearFieldError('dispatched');
   }
@@ -532,6 +571,7 @@ function validateForm() {
 // Map each field key to its [fieldEl, errorEl] pair.
 function fieldPair(name) {
   if (name === 'devices') return [els.devicesField, els.devicesError];
+  if (name === 'packed') return [els.packedField, els.packedError];
   if (name === 'dispatched') return [els.dispatchedField, els.dispatchedError];
   return [els.casesField, els.casesError];
 }
@@ -607,21 +647,25 @@ async function init() {
   els.headerDate = document.getElementById('headerDate');
   els.cardLastSerial = document.getElementById('cardLastSerial');
   els.cardTotalDevicesReady = document.getElementById('cardTotalDevicesReady');
+  els.cardTotalDevicesPacked = document.getElementById('cardTotalDevicesPacked');
   els.cardTotalCasesStock = document.getElementById('cardTotalCasesStock');
-  els.cardTotalEntries = document.getElementById('cardTotalEntries');
 
   els.form = document.getElementById('productionForm');
   els.dateInput = document.getElementById('dateInput');
   els.devicesInput = document.getElementById('devicesInput');
+  els.packedInput = document.getElementById('packedInput');
   els.dispatchedInput = document.getElementById('dispatchedInput');
   els.casesInput = document.getElementById('casesInput');
   els.devicesField = document.getElementById('devicesField');
+  els.packedField = document.getElementById('packedField');
   els.dispatchedField = document.getElementById('dispatchedField');
   els.casesField = document.getElementById('casesField');
   els.devicesError = document.getElementById('devicesError');
+  els.packedError = document.getElementById('packedError');
   els.dispatchedError = document.getElementById('dispatchedError');
   els.casesError = document.getElementById('casesError');
   els.previewTotalReady = document.getElementById('previewTotalReady');
+  els.previewTotalPacked = document.getElementById('previewTotalPacked');
   els.previewTotalStock = document.getElementById('previewTotalStock');
   els.saveBtn = document.getElementById('saveBtn');
   els.btnLabel = document.getElementById('btnLabel');
@@ -660,6 +704,10 @@ async function init() {
   els.dateInput.addEventListener('change', () => updateSerialPreview());
   els.devicesInput.addEventListener('input', () => {
     clearFieldError('devices');
+    updateSerialPreview();
+  });
+  els.packedInput.addEventListener('input', () => {
+    clearFieldError('packed');
     updateSerialPreview();
   });
   els.dispatchedInput.addEventListener('input', () => {
@@ -713,6 +761,7 @@ async function handleSubmit(event) {
   if (!validateForm()) return;
 
   const devices = toInt(els.devicesInput.value);
+  const packed = toInt(els.packedInput.value);
   const dispatched = toInt(els.dispatchedInput.value);
   const printed = toInt(els.casesInput.value);
   const entryDate = els.dateInput.value || todayISO();
@@ -720,7 +769,8 @@ async function handleSubmit(event) {
   // Date-aware baseline so backdated entries carry the correct running figures.
   const base = getStateAsOfDate(entryDate);
   const newSerial = calculateNextSerialNumber(base.serial, devices);
-  const newTotalReady = base.totalDevicesReady + devices - dispatched;
+  const newTotalReady = base.totalDevicesReady + devices - packed;      // ready loses packed
+  const newTotalPacked = base.totalDevicesPacked + packed - dispatched; // packed gains, dispatch drains
   const newTotalStock = base.totalCasesInStock + printed;
 
   const entry = {
@@ -729,6 +779,8 @@ async function handleSubmit(event) {
     date: entryDate,
     devicesReady: devices,
     totalDevicesReady: newTotalReady,
+    devicesPacked: packed,
+    totalDevicesPacked: newTotalPacked,
     casesPrinted: printed,
     totalCasesInStock: newTotalStock,
     devicesDispatched: dispatched,
@@ -754,6 +806,7 @@ async function handleSubmit(event) {
       highlightNewestRow();
       els.devicesInput.value = '';
       els.dispatchedInput.value = '';
+      els.packedInput.value = '';
       els.casesInput.value = '';
       els.dateInput.value = todayISO();
       updateSerialPreview();
@@ -774,6 +827,7 @@ async function handleSubmit(event) {
   // Reset typed fields; keep date on today; recompute preview
   els.devicesInput.value = '';
   els.dispatchedInput.value = '';
+  els.packedInput.value = '';
   els.casesInput.value = '';
   els.dateInput.value = todayISO();
   updateSerialPreview();
