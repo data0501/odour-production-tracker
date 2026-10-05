@@ -31,7 +31,7 @@
     rel="stylesheet"
   />
 
-  <link rel="stylesheet" href="style.css?v=6" />
+  <link rel="stylesheet" href="style.css?v=7" />
 </head>
 <body>
   <!-- ============================= HEADER / APP BAR ============================= -->
@@ -114,9 +114,9 @@
               </svg>
             </span>
           </div>
-          <div class="card__value tnum" id="cardTodayDevices">—</div>
-          <div class="card__label">Today's devices ready</div>
-          <div class="card__sub">Assembled &amp; serialised today</div>
+          <div class="card__value tnum" id="cardTotalDevicesReady">—</div>
+          <div class="card__label">Total devices ready</div>
+          <div class="card__sub">Assembled, not yet dispatched</div>
         </article>
 
         <!-- Card 3 -->
@@ -130,9 +130,9 @@
               </svg>
             </span>
           </div>
-          <div class="card__value tnum" id="cardCasesStock">—</div>
-          <div class="card__label">Cases in stock</div>
-          <div class="card__sub">Empty 3D-printed enclosures</div>
+          <div class="card__value tnum" id="cardTotalCasesStock">—</div>
+          <div class="card__label">Total cases in stock</div>
+          <div class="card__sub">Printed enclosures on hand</div>
         </article>
 
         <!-- Card 4 -->
@@ -159,7 +159,7 @@
       <section class="panel" aria-labelledby="entry-heading">
         <div class="panel__head">
           <h2 id="entry-heading" class="panel__title">Log today's production</h2>
-          <p class="panel__desc">Enter two numbers — the serial number updates itself.</p>
+          <p class="panel__desc">Enter the day's numbers — serial and totals update themselves.</p>
         </div>
 
         <form id="productionForm" class="form" novalidate>
@@ -181,13 +181,24 @@
             <p class="field__error" id="devicesError"></p>
           </div>
 
-          <!-- Cases in stock -->
+          <!-- Devices dispatched today -->
+          <div class="field" id="dispatchedField">
+            <label class="field__label" for="dispatchedInput">Devices dispatched today</label>
+            <input
+              type="number" id="dispatchedInput" class="input"
+              inputmode="numeric" min="0" step="1"
+              placeholder="e.g. 0" autocomplete="off"
+            />
+            <p class="field__error" id="dispatchedError"></p>
+          </div>
+
+          <!-- Cases printed today -->
           <div class="field" id="casesField">
-            <label class="field__label" for="casesInput">Cases in stock</label>
+            <label class="field__label" for="casesInput">Cases printed today</label>
             <input
               type="number" id="casesInput" class="input"
               inputmode="numeric" min="0" step="1"
-              placeholder="e.g. 19" autocomplete="off"
+              placeholder="e.g. 20" autocomplete="off"
             />
             <p class="field__error" id="casesError"></p>
           </div>
@@ -210,6 +221,18 @@
             <div class="serial-box__side serial-box__side--new">
               <span class="serial-box__label">New last serial</span>
               <span class="serial-box__value tnum" id="newSerial">—</span>
+            </div>
+          </div>
+
+          <!-- Live preview of the running totals this entry will produce -->
+          <div class="totals-preview" aria-live="polite">
+            <div class="totals-preview__item">
+              <span class="totals-preview__label">Total devices ready</span>
+              <span class="totals-preview__value tnum" id="previewTotalReady">—</span>
+            </div>
+            <div class="totals-preview__item">
+              <span class="totals-preview__label">Total cases in stock</span>
+              <span class="totals-preview__value tnum" id="previewTotalStock">—</span>
             </div>
           </div>
 
@@ -251,8 +274,11 @@
               <tr>
                 <th scope="col">Last device SR</th>
                 <th scope="col">Date</th>
-                <th scope="col" class="ta-right">Devices ready</th>
-                <th scope="col" class="ta-right">Cases in stock</th>
+                <th scope="col" class="ta-right">Ready today</th>
+                <th scope="col" class="ta-right">Total ready</th>
+                <th scope="col" class="ta-right">Printed today</th>
+                <th scope="col" class="ta-right">Total in stock</th>
+                <th scope="col" class="ta-right">Dispatched</th>
               </tr>
             </thead>
             <tbody id="historyBody"><!-- rows injected by script.js --></tbody>
@@ -307,7 +333,7 @@
   </div>
 
   <!-- App logic (data layer, serial calc, table, validation) -->
-  <script src="script.js?v=6"></script>
+  <script src="script.js?v=7"></script>
 
   <!-- Theme toggle wiring (kept here so script.js stays untouched) -->
   <script>
