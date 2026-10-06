@@ -33,7 +33,7 @@ const CONFIG = {
 
   // Running-total starting points — set these to your real current figures.
   // The first new entry builds on them, exactly like SERIAL_BASELINE does.
-  TOTAL_DEVICES_READY_BASELINE: 94,   // assembled devices on hand, not yet packed
+  TOTAL_DEVICES_READY_BASELINE: 32,   // assembled devices on hand, not yet packed
   TOTAL_DEVICES_PACKED_BASELINE: 0,  // packed devices on hand, not yet dispatched
   TOTAL_CASES_IN_STOCK_BASELINE: 443,  // printed cases currently in stock
 
