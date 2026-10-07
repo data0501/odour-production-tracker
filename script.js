@@ -361,19 +361,23 @@ function calculateNextSerialNumber(currentSerial, devicesReady) {
    RENDERING
 ============================================================================ */
 
-/** Set all four card values at once (used for loading / error placeholders). */
+/** Set all five card values at once (used for loading / error placeholders). */
 function setCards(text) {
   els.cardLastSerial.textContent = text;
   els.cardTotalDevicesReady.textContent = text;
   els.cardTotalDevicesPacked.textContent = text;
+  els.cardTotalDevicesInHand.textContent = text;
   els.cardTotalCasesStock.textContent = text;
 }
 
-/** Update the four summary cards from current state. */
+/** Update the summary cards from current state. */
 function updateDashboard() {
   els.cardLastSerial.textContent = getCurrentLastSerial();
   els.cardTotalDevicesReady.textContent = getLatestTotalDevicesReady();
   els.cardTotalDevicesPacked.textContent = getLatestTotalDevicesPacked();
+  // In hand = ready (loose) + packed, both still on the premises
+  els.cardTotalDevicesInHand.textContent =
+    getLatestTotalDevicesReady() + getLatestTotalDevicesPacked();
   els.cardTotalCasesStock.textContent = getLatestTotalCasesInStock();
 }
 
@@ -497,7 +501,7 @@ function setSerialText(node, value) {
 ============================================================================ */
 
 /**
- * Validate the two typed fields. Shows friendly, specific messages and returns
+ * Validate the typed fields. Shows friendly, specific messages and returns
  * a boolean. Empty submissions are blocked.
  */
 function validateForm() {
@@ -648,6 +652,7 @@ async function init() {
   els.cardLastSerial = document.getElementById('cardLastSerial');
   els.cardTotalDevicesReady = document.getElementById('cardTotalDevicesReady');
   els.cardTotalDevicesPacked = document.getElementById('cardTotalDevicesPacked');
+  els.cardTotalDevicesInHand = document.getElementById('cardTotalDevicesInHand');
   els.cardTotalCasesStock = document.getElementById('cardTotalCasesStock');
 
   els.form = document.getElementById('productionForm');
