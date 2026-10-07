@@ -269,7 +269,7 @@ button { font-family: inherit; }
 /* ----------------------------- Summary cards ----------------------------- */
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 18px;
   margin-bottom: 26px;
 }
@@ -764,13 +764,13 @@ tr.row-offday:hover td {
 
 /* ============================== RESPONSIVE =============================== */
 
-/* Tablet: form stacks above history; cards two-up (2x2) */
+/* Tablet: form stacks above history; cards 3-up */
 @media (max-width: 960px) {
-  .cards-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cards-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .main-grid  { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* Phone landscape / small tablet */
+/* Phone landscape / small tablet: cards 2-up */
 @media (max-width: 640px) {
   .app-header__inner { padding: 12px 16px; }
   .container { padding: 20px 16px 44px; }
@@ -779,7 +779,7 @@ tr.row-offday:hover td {
   .header-meta__label { display: none; }
   .header-meta { padding: 6px 11px; }
 
-  .cards-grid { gap: 12px; margin-bottom: 20px; }
+  .cards-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
   .card { padding: 16px; }
   .card__top { margin-bottom: 12px; }
   .card__icon { width: 36px; height: 36px; }
