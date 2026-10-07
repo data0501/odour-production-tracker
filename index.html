@@ -31,7 +31,7 @@
     rel="stylesheet"
   />
 
-  <link rel="stylesheet" href="style.css?v=8" />
+  <link rel="stylesheet" href="style.css?v=9" />
 </head>
 <body>
   <!-- ============================= HEADER / APP BAR ============================= -->
@@ -135,8 +135,23 @@
           <div class="card__sub">Packed, not yet dispatched</div>
         </article>
 
-        <!-- Card 4 -->
+        <!-- Card 4 · Total devices in hand (ready + packed) -->
         <article class="card" style="--stagger: 3">
+          <div class="card__top">
+            <span class="card__icon card__icon--primary" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 7h16v12H4zM4 7l2-3h12l2 3M9 12h6" />
+              </svg>
+            </span>
+          </div>
+          <div class="card__value tnum" id="cardTotalDevicesInHand">—</div>
+          <div class="card__label">Total devices in hand</div>
+          <div class="card__sub">Ready + packed, not yet dispatched</div>
+        </article>
+
+        <!-- Card 5 -->
+        <article class="card" style="--stagger: 4">
           <div class="card__top">
             <span class="card__icon card__icon--violet" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
@@ -350,7 +365,7 @@
   </div>
 
   <!-- App logic (data layer, serial calc, table, validation) -->
-  <script src="script.js?v=8"></script>
+  <script src="script.js?v=9"></script>
 
   <!-- Theme toggle wiring (kept here so script.js stays untouched) -->
   <script>
