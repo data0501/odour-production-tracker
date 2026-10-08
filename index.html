@@ -184,7 +184,16 @@
             <input type="date" id="dateInput" class="input" />
             <p class="field__hint">Defaults to today. Change only if logging a past day.</p>
           </div>
-
+<!-- Cases printed today -->
+          <div class="field" id="casesField">
+            <label class="field__label" for="casesInput">Cases printed today</label>
+            <input
+              type="number" id="casesInput" class="input"
+              inputmode="numeric" min="0" step="1"
+              placeholder="e.g. 20" autocomplete="off"
+            />
+            <p class="field__error" id="casesError"></p>
+          </div>
           <!-- Devices ready -->
           <div class="field" id="devicesField">
             <label class="field__label" for="devicesInput">Devices ready today</label>
@@ -218,16 +227,7 @@
             <p class="field__error" id="dispatchedError"></p>
           </div>
 
-          <!-- Cases printed today -->
-          <div class="field" id="casesField">
-            <label class="field__label" for="casesInput">Cases printed today</label>
-            <input
-              type="number" id="casesInput" class="input"
-              inputmode="numeric" min="0" step="1"
-              placeholder="e.g. 20" autocomplete="off"
-            />
-            <p class="field__error" id="casesError"></p>
-          </div>
+          
 
           <!-- Signature element: live serial calculation -->
           <div class="serial-box" aria-live="polite">
