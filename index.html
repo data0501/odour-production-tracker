@@ -31,7 +31,7 @@
     rel="stylesheet"
   />
 
-  <link rel="stylesheet" href="style.css?v=10" />
+  <link rel="stylesheet" href="style.css?v=11" />
 </head>
 <body>
   <!-- ============================= HEADER / APP BAR ============================= -->
@@ -226,14 +226,24 @@
             <p class="field__error" id="packedError"></p>
           </div>
 
-          <!-- Devices dispatched today -->
+          <!-- Devices dispatched — auto-counted from the SHIPPING DATA sheet -->
           <div class="field" id="dispatchedField">
-            <label class="field__label" for="dispatchedInput">Devices dispatched today</label>
+            <div class="field__labelrow">
+              <label class="field__label" for="dispatchedInput">Devices dispatched today</label>
+              <button type="button" class="field__action" id="recountDispatchedBtn" title="Recount from the SHIPPING DATA sheet">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6" />
+                </svg>
+                Recount
+              </button>
+            </div>
             <input
               type="number" id="dispatchedInput" class="input"
               inputmode="numeric" min="0" step="1"
-              placeholder="e.g. 0" autocomplete="off"
+              placeholder="—" autocomplete="off" readonly
             />
+            <p class="field__hint" id="dispatchedHint">Counted automatically from the SHIPPING DATA sheet for this date.</p>
             <p class="field__error" id="dispatchedError"></p>
           </div>
 
@@ -375,7 +385,7 @@
   </div>
 
   <!-- App logic (data layer, serial calc, table, validation) -->
-  <script src="script.js?v=10"></script>
+  <script src="script.js?v=11"></script>
 
   <!-- Theme toggle wiring (kept here so script.js stays untouched) -->
   <script>
