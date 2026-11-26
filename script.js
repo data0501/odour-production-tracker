@@ -230,6 +230,20 @@ async function fetchReadyCount(dateDDMMYYYY) {
 }
 
 /**
+ * Ask the Apps Script how many devices were dispatched on a date (ISO
+ * YYYY-MM-DD) — rows in SHIPPING DATA whose PACKED DATE is that day.
+ * Returns { date, count }.
+ */
+async function fetchDispatchedCount(isoDate) {
+  const url = CONFIG.APPS_SCRIPT_URL
+    + '?action=dispatchedCount&date=' + encodeURIComponent(isoDate)
+    + '&t=' + Date.now();
+  const res = await fetchWithRetry(url, { method: 'GET' });
+  if (!res.ok) throw new Error('Dispatched-count failed with status ' + res.status);
+  return res.json();
+}
+
+/**
  * Load all production entries.
  * LIVE: GET the Apps Script Web App and return the parsed rows.
  * DEMO: read from localStorage (seed sample data on first run).
@@ -595,6 +609,77 @@ async function refreshReadyFromDrive() {
 }
 
 /* ============================================================================
+   DEVICES-DISPATCHED FROM SHIPPING DATA
+   "Devices dispatched today" is not typed — it is the number of rows in the
+   SHIPPING DATA sheet whose PACKED DATE is the selected day, counted by the
+   Apps Script. Read-only while a count shows; editable fallback if it can't
+   be fetched.
+============================================================================ */
+let dispatchedCountToken = 0;
+
+function setDispatchedMode(mode, info) {
+  const field = els.dispatchedField;
+  const hint = els.dispatchedHint;
+  const input = els.dispatchedInput;
+  field.classList.remove('is-loading', 'is-error');
+  hint.classList.remove('field__hint--error');
+
+  if (mode === 'loading') {
+    input.readOnly = true;
+    input.value = '';
+    field.classList.add('is-loading');
+    hint.textContent = 'Counting from the SHIPPING DATA sheet…';
+    els.recountDispatchedBtn.disabled = true;
+    return;
+  }
+
+  els.recountDispatchedBtn.disabled = false;
+
+  if (mode === 'ok') {
+    input.readOnly = true;
+    const d = info && info.date ? formatDate(info.date) : '';
+    const c = Number(info && info.count) || 0;
+    hint.textContent = (d ? d + '  —  ' : '') + c + ' dispatched (from SHIPPING DATA)';
+    return;
+  }
+
+  if (mode === 'error') {
+    input.readOnly = false;
+    field.classList.add('is-error');
+    hint.classList.add('field__hint--error');
+    hint.textContent = "Couldn't count from the shipping sheet — type the number, or press Recount.";
+    return;
+  }
+
+  input.readOnly = false;
+  hint.textContent = 'Enter the devices dispatched today.';
+}
+
+async function refreshDispatchedFromShipping() {
+  const iso = (els.dateInput && els.dateInput.value) ? els.dateInput.value : todayISO();
+
+  if (!backendEnabled()) {
+    setDispatchedMode('manual');
+    return;
+  }
+
+  const myToken = ++dispatchedCountToken;
+  setDispatchedMode('loading');
+  try {
+    const result = await fetchDispatchedCount(iso);
+    if (myToken !== dispatchedCountToken) return;
+    els.dispatchedInput.value = Number(result && result.count) || 0;
+    setDispatchedMode('ok', result);
+    clearFieldError('dispatched');
+  } catch (err) {
+    if (myToken !== dispatchedCountToken) return;
+    console.error(err);
+    setDispatchedMode('error');
+  }
+  updateSerialPreview();
+}
+
+/* ============================================================================
    VALIDATION
 ============================================================================ */
 
@@ -613,7 +698,6 @@ function validateForm() {
   const entryDate = els.dateInput.value || todayISO();
   const base = getStateAsOfDate(entryDate);
   const safeDevices = !Number.isNaN(devices) && devices > 0 ? devices : 0;
-  const safePacked = !Number.isNaN(packed) && packed > 0 ? packed : 0;
 
   // Devices ready today — whole number, 0 or more (0 = no assembly that day).
   if (els.devicesInput.value.trim() === '') {
@@ -641,17 +725,14 @@ function validateForm() {
     clearFieldError('packed');
   }
 
-  // Devices dispatched today — can't dispatch more than are packed
-  // (packed on that date + today's newly packed).
-  const availableToDispatch = base.totalDevicesPacked + safePacked;
+  // Devices dispatched today — auto-counted from SHIPPING DATA (authoritative),
+  // so just sanity-check it's a whole number >= 0 (no upper cap).
   if (els.dispatchedInput.value.trim() === '') {
     ok = setFieldError('dispatched', 'Enter devices dispatched today (0 if none).') && ok;
   } else if (Number.isNaN(dispatched)) {
     ok = setFieldError('dispatched', 'Use a whole number for devices dispatched.') && ok;
   } else if (dispatched < 0) {
     ok = setFieldError('dispatched', 'Devices dispatched cannot be negative.') && ok;
-  } else if (dispatched > availableToDispatch) {
-    ok = setFieldError('dispatched', `Only ${availableToDispatch} packed to dispatch.`) && ok;
   } else {
     clearFieldError('dispatched');
   }
@@ -766,6 +847,8 @@ async function init() {
   els.devicesError = document.getElementById('devicesError');
   els.recountBtn = document.getElementById('recountBtn');
   els.readyHint = document.getElementById('readyHint');
+  els.recountDispatchedBtn = document.getElementById('recountDispatchedBtn');
+  els.dispatchedHint = document.getElementById('dispatchedHint');
   els.packedError = document.getElementById('packedError');
   els.dispatchedError = document.getElementById('dispatchedError');
   els.casesError = document.getElementById('casesError');
@@ -806,7 +889,7 @@ async function init() {
   // Events
   // When the date changes, recalculate the serial baseline immediately so
   // the engineer sees the correct "current serial" for that date.
-  els.dateInput.addEventListener('change', () => { updateSerialPreview(); refreshReadyFromDrive(); });
+  els.dateInput.addEventListener('change', () => { updateSerialPreview(); refreshReadyFromDrive(); refreshDispatchedFromShipping(); });
   els.devicesInput.addEventListener('input', () => {
     clearFieldError('devices');
     updateSerialPreview();
@@ -827,6 +910,7 @@ async function init() {
   els.form.addEventListener('submit', handleSubmit);
   els.retryBtn.addEventListener('click', refresh);
   els.recountBtn.addEventListener('click', refreshReadyFromDrive);
+  els.recountDispatchedBtn.addEventListener('click', refreshDispatchedFromShipping);
 
   // Load + first paint
   await refresh();
@@ -860,6 +944,7 @@ async function refresh() {
   renderHistoryTable(els.searchInput.value || '');
   updateSerialPreview();
   refreshReadyFromDrive(); // auto-fill "Devices ready today" from the QC Drive
+  refreshDispatchedFromShipping(); // auto-fill "Devices dispatched today" from SHIPPING DATA
 }
 
 /** Handle the "Save production" action. */
@@ -911,12 +996,12 @@ async function handleSubmit(event) {
       updateDashboard();
       renderHistoryTable(els.searchInput.value);
       highlightNewestRow();
-      els.dispatchedInput.value = '';
       els.packedInput.value = '';
       els.casesInput.value = '';
       els.dateInput.value = todayISO();
       updateSerialPreview();
       refreshReadyFromDrive(); // re-count devices-ready for today
+      refreshDispatchedFromShipping(); // re-count dispatched for today
       els.packedInput.focus();
     } else {
       // Entry is NOT in the Sheet — the save genuinely failed.
@@ -932,12 +1017,12 @@ async function handleSubmit(event) {
   highlightNewestRow();
 
   // Reset typed fields; keep date on today; recompute preview
-  els.dispatchedInput.value = '';
   els.packedInput.value = '';
   els.casesInput.value = '';
   els.dateInput.value = todayISO();
   updateSerialPreview();
   refreshReadyFromDrive(); // re-count devices-ready for today
+  refreshDispatchedFromShipping(); // re-count dispatched for today
   els.packedInput.focus();
 
   showToast('success', 'Production updated', `New last serial is ${newSerial}.`);
