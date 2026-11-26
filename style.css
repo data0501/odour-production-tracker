@@ -826,3 +826,57 @@ tr.row-offday:hover td {
   }
   .card:hover { transform: none; }
 }
+/* ======================= DEVICES-READY (auto from Drive) ================= */
+/* Label row holds the field label and the small "Recount" action together */
+.field__labelrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 7px;
+}
+.field__labelrow .field__label { margin-bottom: 0; }
+
+/* Small secondary action button sitting next to a field label */
+.field__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--primary-strong);
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease),
+              background var(--dur) var(--ease);
+}
+.field__action svg { width: 13px; height: 13px; }
+.field__action:hover { color: var(--primary); border-color: var(--primary); background: var(--primary-soft); }
+.field__action:disabled { opacity: .55; cursor: default; }
+.field__action:focus-visible { outline: 3px solid var(--primary-ring); outline-offset: 2px; }
+
+/* Read-only auto-filled value: looks calculated, not typed */
+.input[readonly] {
+  background: var(--primary-soft);
+  border-color: var(--border);
+  color: var(--primary-strong);
+  font-weight: 700;
+  cursor: default;
+}
+.input[readonly]:hover { border-color: var(--border); }
+
+/* Hint under the field; error variant turns it red when Drive can't be read */
+.field__hint--error { color: var(--danger); font-weight: 500; }
+
+/* Subtle pulse on the field while the Drive count is loading */
+.field.is-loading .input {
+  animation: ready-pulse 1.1s var(--ease) infinite;
+}
+@keyframes ready-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .55; }
+}
