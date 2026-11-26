@@ -217,7 +217,7 @@ async function fetchWithRetry(url, options = {}, retries = 3, delay = 1800, time
 
 /**
  * Ask the Apps Script how many finished devices are in the QC Drive folders for
- * a date (DD-MM-YYYY) — i.e. the files under SOHAM + SARVESH + PETER + CHETAN
+ * a date (DD-MM-YYYY) — i.e. the files under SOHAM + SARVESH + PETER + CHAITAN
  * for that day. Returns { date, count, breakdown }.
  */
 async function fetchReadyCount(dateDDMMYYYY) {
@@ -513,7 +513,7 @@ function setSerialText(node, value) {
 /* ============================================================================
    DEVICES-READY FROM DRIVE
    "Devices ready today" is not typed — it is the number of files in that date's
-   QC folders (SOHAM + SARVESH + PETER + CHETAN), counted by the Apps Script.
+   QC folders (SOHAM + SARVESH + PETER + CHAITAN), counted by the Apps Script.
    The field stays read-only while a count is shown; if the count can't be
    fetched it becomes editable so a save is never blocked.
 ============================================================================ */
@@ -543,7 +543,7 @@ function setReadyMode(mode, info) {
   if (mode === 'ok') {
     input.readOnly = true;
     const b = (info && info.breakdown) || {};
-    const parts = ['SOHAM', 'SARVESH', 'PETER', 'CHETAN']
+    const parts = ['SOHAM', 'SARVESH', 'PETER', 'CHAITAN']
       .map((person) => person + ' ' + (Number(b[person]) || 0))
       .join('  ·  ');
     hint.textContent = (info && info.date ? info.date + '  —  ' : '') + parts;
