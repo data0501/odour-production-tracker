@@ -216,6 +216,20 @@ async function fetchWithRetry(url, options = {}, retries = 3, delay = 1800, time
 }
 
 /**
+ * Ask the Apps Script how many finished devices are in the QC Drive folders for
+ * a date (DD-MM-YYYY) — i.e. the files under SOHAM + SARVESH + PETER + CHETAN
+ * for that day. Returns { date, count, breakdown }.
+ */
+async function fetchReadyCount(dateDDMMYYYY) {
+  const url = CONFIG.APPS_SCRIPT_URL
+    + '?action=readyCount&date=' + encodeURIComponent(dateDDMMYYYY)
+    + '&t=' + Date.now();
+  const res = await fetchWithRetry(url, { method: 'GET' });
+  if (!res.ok) throw new Error('Ready-count failed with status ' + res.status);
+  return res.json();
+}
+
+/**
  * Load all production entries.
  * LIVE: GET the Apps Script Web App and return the parsed rows.
  * DEMO: read from localStorage (seed sample data on first run).
@@ -497,6 +511,90 @@ function setSerialText(node, value) {
 }
 
 /* ============================================================================
+   DEVICES-READY FROM DRIVE
+   "Devices ready today" is not typed — it is the number of files in that date's
+   QC folders (SOHAM + SARVESH + PETER + CHETAN), counted by the Apps Script.
+   The field stays read-only while a count is shown; if the count can't be
+   fetched it becomes editable so a save is never blocked.
+============================================================================ */
+
+// Guards against out-of-order responses when the date changes quickly.
+let readyCountToken = 0;
+
+/** Put the Devices-ready field into one of: loading | ok | error | manual. */
+function setReadyMode(mode, info) {
+  const field = els.devicesField;
+  const hint = els.readyHint;
+  const input = els.devicesInput;
+  field.classList.remove('is-loading', 'is-error');
+  hint.classList.remove('field__hint--error');
+
+  if (mode === 'loading') {
+    input.readOnly = true;
+    input.value = '';
+    field.classList.add('is-loading');
+    hint.textContent = 'Counting from the QC Drive folders…';
+    els.recountBtn.disabled = true;
+    return;
+  }
+
+  els.recountBtn.disabled = false;
+
+  if (mode === 'ok') {
+    input.readOnly = true;
+    const b = (info && info.breakdown) || {};
+    const parts = ['SOHAM', 'SARVESH', 'PETER', 'CHETAN']
+      .map((person) => person + ' ' + (Number(b[person]) || 0))
+      .join('  ·  ');
+    hint.textContent = (info && info.date ? info.date + '  —  ' : '') + parts;
+    return;
+  }
+
+  if (mode === 'error') {
+    // Couldn't reach the Drive count — let the engineer type a number instead.
+    input.readOnly = false;
+    field.classList.add('is-error');
+    hint.classList.add('field__hint--error');
+    hint.textContent = "Couldn't count from Drive — type the number, or press Recount.";
+    return;
+  }
+
+  // manual (demo mode / no backend): plain editable field.
+  input.readOnly = false;
+  hint.textContent = 'Enter the devices ready today.';
+}
+
+/**
+ * Fetch the Drive count for the selected date and fill the field.
+ * No-ops in demo mode (there is no backend to read the Drive).
+ */
+async function refreshReadyFromDrive() {
+  const iso = (els.dateInput && els.dateInput.value) ? els.dateInput.value : todayISO();
+  const ddmmyyyy = formatDate(iso); // folders are named DD-MM-YYYY
+
+  if (!backendEnabled()) {
+    setReadyMode('manual');
+    return;
+  }
+
+  const myToken = ++readyCountToken;
+  setReadyMode('loading');
+  try {
+    const result = await fetchReadyCount(ddmmyyyy);
+    if (myToken !== readyCountToken) return; // a newer request superseded this one
+    const count = Number(result && result.count) || 0;
+    els.devicesInput.value = count;
+    setReadyMode('ok', result);
+    clearFieldError('devices');
+  } catch (err) {
+    if (myToken !== readyCountToken) return;
+    console.error(err);
+    setReadyMode('error');
+  }
+  updateSerialPreview();
+}
+
+/* ============================================================================
    VALIDATION
 ============================================================================ */
 
@@ -666,6 +764,8 @@ async function init() {
   els.dispatchedField = document.getElementById('dispatchedField');
   els.casesField = document.getElementById('casesField');
   els.devicesError = document.getElementById('devicesError');
+  els.recountBtn = document.getElementById('recountBtn');
+  els.readyHint = document.getElementById('readyHint');
   els.packedError = document.getElementById('packedError');
   els.dispatchedError = document.getElementById('dispatchedError');
   els.casesError = document.getElementById('casesError');
@@ -706,7 +806,7 @@ async function init() {
   // Events
   // When the date changes, recalculate the serial baseline immediately so
   // the engineer sees the correct "current serial" for that date.
-  els.dateInput.addEventListener('change', () => updateSerialPreview());
+  els.dateInput.addEventListener('change', () => { updateSerialPreview(); refreshReadyFromDrive(); });
   els.devicesInput.addEventListener('input', () => {
     clearFieldError('devices');
     updateSerialPreview();
@@ -726,6 +826,7 @@ async function init() {
   els.searchInput.addEventListener('input', (e) => renderHistoryTable(e.target.value));
   els.form.addEventListener('submit', handleSubmit);
   els.retryBtn.addEventListener('click', refresh);
+  els.recountBtn.addEventListener('click', refreshReadyFromDrive);
 
   // Load + first paint
   await refresh();
@@ -758,6 +859,7 @@ async function refresh() {
   updateDashboard();
   renderHistoryTable(els.searchInput.value || '');
   updateSerialPreview();
+  refreshReadyFromDrive(); // auto-fill "Devices ready today" from the QC Drive
 }
 
 /** Handle the "Save production" action. */
@@ -809,13 +911,13 @@ async function handleSubmit(event) {
       updateDashboard();
       renderHistoryTable(els.searchInput.value);
       highlightNewestRow();
-      els.devicesInput.value = '';
       els.dispatchedInput.value = '';
       els.packedInput.value = '';
       els.casesInput.value = '';
       els.dateInput.value = todayISO();
       updateSerialPreview();
-      els.devicesInput.focus();
+      refreshReadyFromDrive(); // re-count devices-ready for today
+      els.packedInput.focus();
     } else {
       // Entry is NOT in the Sheet — the save genuinely failed.
       showToast('error', "Couldn't save", "Your entry wasn't saved. Check your connection and try again.");
@@ -830,13 +932,13 @@ async function handleSubmit(event) {
   highlightNewestRow();
 
   // Reset typed fields; keep date on today; recompute preview
-  els.devicesInput.value = '';
   els.dispatchedInput.value = '';
   els.packedInput.value = '';
   els.casesInput.value = '';
   els.dateInput.value = todayISO();
   updateSerialPreview();
-  els.devicesInput.focus();
+  refreshReadyFromDrive(); // re-count devices-ready for today
+  els.packedInput.focus();
 
   showToast('success', 'Production updated', `New last serial is ${newSerial}.`);
 }
