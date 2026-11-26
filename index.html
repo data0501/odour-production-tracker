@@ -31,7 +31,7 @@
     rel="stylesheet"
   />
 
-  <link rel="stylesheet" href="style.css?v=9" />
+  <link rel="stylesheet" href="style.css?v=10" />
 </head>
 <body>
   <!-- ============================= HEADER / APP BAR ============================= -->
@@ -194,14 +194,24 @@
             />
             <p class="field__error" id="casesError"></p>
           </div>
-          <!-- Devices ready -->
+          <!-- Devices ready — auto-counted from the QC Drive folders for the date -->
           <div class="field" id="devicesField">
-            <label class="field__label" for="devicesInput">Devices ready today</label>
+            <div class="field__labelrow">
+              <label class="field__label" for="devicesInput">Devices ready today</label>
+              <button type="button" class="field__action" id="recountBtn" title="Recount from the QC Drive folders">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6" />
+                </svg>
+                Recount
+              </button>
+            </div>
             <input
               type="number" id="devicesInput" class="input"
               inputmode="numeric" min="0" step="1"
-              placeholder="e.g. 0 – 35" autocomplete="off"
+              placeholder="—" autocomplete="off" readonly
             />
+            <p class="field__hint" id="readyHint">Counted automatically from the QC Drive folders for this date.</p>
             <p class="field__error" id="devicesError"></p>
           </div>
 
@@ -365,7 +375,7 @@
   </div>
 
   <!-- App logic (data layer, serial calc, table, validation) -->
-  <script src="script.js?v=9"></script>
+  <script src="script.js?v=10"></script>
 
   <!-- Theme toggle wiring (kept here so script.js stays untouched) -->
   <script>
