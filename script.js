@@ -37,6 +37,13 @@ const CONFIG = {
   TOTAL_DEVICES_PACKED_BASELINE: 0,  // packed devices on hand, not yet dispatched
   TOTAL_CASES_IN_STOCK_BASELINE: 0,  // printed cases currently in stock
 
+  // Per-type starting points for serial + running totals. GSM mirrors the
+  // single baselines above; set WIFI.serial to your real Wi-Fi last serial.
+  TYPE_BASELINES: {
+    GSM:  { serial: 1948, totalDevicesReady: 0, totalDevicesPacked: 0, totalCasesInStock: 0 },
+    WIFI: { serial: 0,    totalDevicesReady: 0, totalDevicesPacked: 0, totalCasesInStock: 0 }
+  },
+
   STORAGE_KEY: 'pe_odour_production_v1', // local persistence key (demo mode only)
 };
 
@@ -53,6 +60,9 @@ let productionData = [];
 
 /* Cached DOM references (populated in init) */
 const els = {};
+
+/* Which device type the dashboard is currently showing ('GSM' | 'WIFI'). */
+let currentType = 'GSM';
 
 /* Inline icons for the toast (swapped by type) */
 const ICON_CHECK =
@@ -97,6 +107,28 @@ function byNewest(a, b) {
   return t !== 0 ? t : b.serial - a.serial;
 }
 
+/** Normalize a device type to 'GSM' or 'WIFI' (blank/unknown -> GSM). */
+function normType(t) {
+  return (String(t || '').toUpperCase() === 'WIFI') ? 'WIFI' : 'GSM';
+}
+
+/** The stored type of an entry (legacy rows with no type count as GSM). */
+function rowType(e) { return normType(e.deviceType); }
+
+/** Entries belonging to the currently selected device type. */
+function typedRows() { return productionData.filter((e) => rowType(e) === currentType); }
+
+/** Per-type baseline (serial + running totals) for when a type has no rows yet. */
+function baselineFor(type) {
+  const b = CONFIG.TYPE_BASELINES[normType(type)];
+  return {
+    serial: b.serial,
+    totalDevicesReady: b.totalDevicesReady,
+    totalDevicesPacked: b.totalDevicesPacked,
+    totalCasesInStock: b.totalCasesInStock,
+  };
+}
+
 /** Coerce a row coming back from the Sheet into the shape/types the UI expects. */
 function normalizeEntry(row) {
   const dateRaw = row.date != null ? String(row.date) : '';
@@ -114,6 +146,7 @@ function normalizeEntry(row) {
     casesPrinted: casesPrinted,
     totalCasesInStock: Number(row.totalCasesInStock) || 0,
     devicesDispatched: Number(row.devicesDispatched) || 0,
+    deviceType: normType(row.deviceType),
     createdAt: row.createdAt ? String(row.createdAt) : new Date().toISOString(),
   };
 }
@@ -144,8 +177,8 @@ function isOffDay(dateStr) {
  * correct baseline for that day rather than the current last serial.
  */
 function getStateAsOfDate(targetDate) {
-  const prior = productionData
-    .filter((e) => e.date <= targetDate) // on or before the target date
+  const prior = typedRows()
+    .filter((e) => e.date <= targetDate) // on or before the target date, this type
     .sort((a, b) =>
       b.date.localeCompare(a.date)
       || (new Date(b.createdAt) - new Date(a.createdAt))
@@ -160,12 +193,7 @@ function getStateAsOfDate(targetDate) {
       totalCasesInStock: p.totalCasesInStock,
     };
   }
-  return {
-    serial: CONFIG.SERIAL_BASELINE,
-    totalDevicesReady: CONFIG.TOTAL_DEVICES_READY_BASELINE,
-    totalDevicesPacked: CONFIG.TOTAL_DEVICES_PACKED_BASELINE,
-    totalCasesInStock: CONFIG.TOTAL_CASES_IN_STOCK_BASELINE,
-  };
+  return baselineFor(currentType);
 }
 
 /* ============================================================================
@@ -220,9 +248,10 @@ async function fetchWithRetry(url, options = {}, retries = 3, delay = 1800, time
  * a date (DD-MM-YYYY) — i.e. the files under SOHAM + SARVESH + PETER + CHAITAN
  * for that day. Returns { date, count, breakdown }.
  */
-async function fetchReadyCount(dateDDMMYYYY) {
+async function fetchReadyCount(dateDDMMYYYY, type) {
   const url = CONFIG.APPS_SCRIPT_URL
     + '?action=readyCount&date=' + encodeURIComponent(dateDDMMYYYY)
+    + '&type=' + encodeURIComponent(type || 'GSM')
     + '&t=' + Date.now();
   const res = await fetchWithRetry(url, { method: 'GET' });
   if (!res.ok) throw new Error('Ready-count failed with status ' + res.status);
@@ -348,8 +377,9 @@ function writeLocal(data) {
 
 /** The chronologically latest entry (by date, then createdAt), or null. */
 function latestEntry() {
-  if (!productionData.length) return null;
-  return productionData.slice().sort((a, b) =>
+  const rows = typedRows();
+  if (!rows.length) return null;
+  return rows.slice().sort((a, b) =>
     b.date.localeCompare(a.date)
     || (new Date(b.createdAt) - new Date(a.createdAt))
     || b.serial - a.serial
@@ -359,25 +389,25 @@ function latestEntry() {
 /** Latest device serial, or the baseline if there are no entries yet. */
 function getCurrentLastSerial() {
   const e = latestEntry();
-  return e ? e.serial : CONFIG.SERIAL_BASELINE;
+  return e ? e.serial : baselineFor(currentType).serial;
 }
 
 /** Latest running total of assembled-but-not-dispatched devices. */
 function getLatestTotalDevicesReady() {
   const e = latestEntry();
-  return e ? e.totalDevicesReady : CONFIG.TOTAL_DEVICES_READY_BASELINE;
+  return e ? e.totalDevicesReady : baselineFor(currentType).totalDevicesReady;
 }
 
 /** Latest running total of packed-but-not-dispatched devices. */
 function getLatestTotalDevicesPacked() {
   const e = latestEntry();
-  return e ? e.totalDevicesPacked : CONFIG.TOTAL_DEVICES_PACKED_BASELINE;
+  return e ? e.totalDevicesPacked : baselineFor(currentType).totalDevicesPacked;
 }
 
 /** Latest running total of printed cases in stock. */
 function getLatestTotalCasesInStock() {
   const e = latestEntry();
-  return e ? e.totalCasesInStock : CONFIG.TOTAL_CASES_IN_STOCK_BASELINE;
+  return e ? e.totalCasesInStock : baselineFor(currentType).totalCasesInStock;
 }
 
 /** New last serial = current last serial + devices produced. */
@@ -423,7 +453,7 @@ function showTableStatus(state) {
  */
 function renderHistoryTable(filterText = '') {
   const query = filterText.trim().toLowerCase();
-  const rows = productionData
+  const rows = typedRows()
     .slice()
     .sort(byNewest)
     .filter((e) => {
@@ -457,7 +487,7 @@ function renderHistoryTable(filterText = '') {
   const empty = rows.length === 0;
   els.historyEmpty.hidden = !empty;
   if (empty) {
-    const noData = productionData.length === 0;
+    const noData = typedRows().length === 0;
     els.emptyTitle.textContent = noData ? 'No entries in your Sheet yet' : 'No matching entries';
     els.emptyText.textContent = noData
       ? 'Use the form on the left to log today\'s production — it will save directly to your Google Sheet.'
@@ -466,7 +496,7 @@ function renderHistoryTable(filterText = '') {
 
   els.resultCount.textContent = query
     ? `${rows.length} match${rows.length === 1 ? '' : 'es'}`
-    : `${productionData.length} total`;
+    : `${typedRows().length} total`;
 }
 
 /**
@@ -594,7 +624,7 @@ async function refreshReadyFromDrive() {
   const myToken = ++readyCountToken;
   setReadyMode('loading');
   try {
-    const result = await fetchReadyCount(ddmmyyyy);
+    const result = await fetchReadyCount(ddmmyyyy, currentType);
     if (myToken !== readyCountToken) return; // a newer request superseded this one
     const count = Number(result && result.count) || 0;
     els.devicesInput.value = count;
@@ -623,6 +653,14 @@ function setDispatchedMode(mode, info) {
   const input = els.dispatchedInput;
   field.classList.remove('is-loading', 'is-error');
   hint.classList.remove('field__hint--error');
+
+  if (mode === 'wifi') {
+    input.readOnly = true;
+    input.value = 0;
+    els.recountDispatchedBtn.disabled = true;
+    hint.textContent = "Dispatched is tracked under GSM (shipping data isn't split by type).";
+    return;
+  }
 
   if (mode === 'loading') {
     input.readOnly = true;
@@ -658,6 +696,15 @@ function setDispatchedMode(mode, info) {
 async function refreshDispatchedFromShipping() {
   const iso = (els.dateInput && els.dateInput.value) ? els.dateInput.value : todayISO();
 
+  // Dispatched is combined and attributed to GSM only; Wi-Fi shows 0.
+  if (currentType !== 'GSM') {
+    dispatchedCountToken++;        // cancel any in-flight GSM fetch
+    setDispatchedMode('wifi');
+    clearFieldError('dispatched');
+    updateSerialPreview();
+    return;
+  }
+
   if (!backendEnabled()) {
     setDispatchedMode('manual');
     return;
@@ -677,6 +724,40 @@ async function refreshDispatchedFromShipping() {
     setDispatchedMode('error');
   }
   updateSerialPreview();
+}
+
+/* ============================================================================
+   DEVICE-TYPE TOGGLE
+============================================================================ */
+
+/** Switch the whole dashboard between GSM and Wi-Fi. */
+function setDeviceType(type) {
+  const t = normType(type);
+  if (t === currentType) return;
+  currentType = t;
+
+  if (els.typeGsmBtn && els.typeWifiBtn) {
+    const gsm = currentType === 'GSM';
+    els.typeGsmBtn.classList.toggle('is-active', gsm);
+    els.typeWifiBtn.classList.toggle('is-active', !gsm);
+    els.typeGsmBtn.setAttribute('aria-selected', String(gsm));
+    els.typeWifiBtn.setAttribute('aria-selected', String(!gsm));
+  }
+
+  // Clear the manual fields so values aren't carried across types.
+  els.packedInput.value = '';
+  els.casesInput.value = '';
+  clearFieldError('devices');
+  clearFieldError('packed');
+  clearFieldError('dispatched');
+  clearFieldError('cases');
+
+  // Repaint everything for the newly selected type.
+  updateDashboard();
+  renderHistoryTable(els.searchInput.value || '');
+  updateSerialPreview();
+  refreshReadyFromDrive();
+  refreshDispatchedFromShipping();
 }
 
 /* ============================================================================
@@ -849,6 +930,8 @@ async function init() {
   els.readyHint = document.getElementById('readyHint');
   els.recountDispatchedBtn = document.getElementById('recountDispatchedBtn');
   els.dispatchedHint = document.getElementById('dispatchedHint');
+  els.typeGsmBtn = document.getElementById('typeGsmBtn');
+  els.typeWifiBtn = document.getElementById('typeWifiBtn');
   els.packedError = document.getElementById('packedError');
   els.dispatchedError = document.getElementById('dispatchedError');
   els.casesError = document.getElementById('casesError');
@@ -911,6 +994,8 @@ async function init() {
   els.retryBtn.addEventListener('click', refresh);
   els.recountBtn.addEventListener('click', refreshReadyFromDrive);
   els.recountDispatchedBtn.addEventListener('click', refreshDispatchedFromShipping);
+  els.typeGsmBtn.addEventListener('click', () => setDeviceType('GSM'));
+  els.typeWifiBtn.addEventListener('click', () => setDeviceType('WIFI'));
 
   // Load + first paint
   await refresh();
@@ -954,7 +1039,7 @@ async function handleSubmit(event) {
 
   const devices = toInt(els.devicesInput.value);
   const packed = toInt(els.packedInput.value);
-  const dispatched = toInt(els.dispatchedInput.value);
+  const dispatched = (currentType === 'GSM') ? toInt(els.dispatchedInput.value) : 0;
   const printed = toInt(els.casesInput.value);
   const entryDate = els.dateInput.value || todayISO();
 
@@ -976,6 +1061,7 @@ async function handleSubmit(event) {
     casesPrinted: printed,
     totalCasesInStock: newTotalStock,
     devicesDispatched: dispatched,
+    deviceType: currentType,
     createdAt: new Date().toISOString(),
   };
 
