@@ -40,8 +40,8 @@ const CONFIG = {
   // Per-type starting points for serial + running totals. GSM mirrors the
   // single baselines above; set WIFI.serial to your real Wi-Fi last serial.
   TYPE_BASELINES: {
-    GSM:  { serial: 1948, totalDevicesReady: 0, totalDevicesPacked: 0, totalCasesInStock: 0 },
-    WIFI: { serial: 0,    totalDevicesReady: 0, totalDevicesPacked: 0, totalCasesInStock: 0 }
+    GSM:  { serial: 72,   totalDevicesReady: 0, totalDevicesPacked: 0, totalCasesInStock: 0 },
+    WIFI: { serial: 2500, totalDevicesReady: 0, totalDevicesPacked: 0, totalCasesInStock: 0 }
   },
 
   STORAGE_KEY: 'pe_odour_production_v1', // local persistence key (demo mode only)
@@ -92,6 +92,15 @@ function formatDate(iso) {
   if (!iso || iso.indexOf('-') === -1) return iso || '';
   const [y, m, d] = iso.split('-');
   return `${d}-${m}-${y}`;
+}
+
+/** Display a serial as a 4-digit zero-padded string (0072, 2500, 10234). */
+function fmtSerial(n) {
+  const num = Number(n);
+  if (!Number.isFinite(num)) return String(n);
+  const digits = String(Math.trunc(Math.abs(num)));
+  const padded = digits.length >= 4 ? digits : ('0000' + digits).slice(-4);
+  return (num < 0 ? '-' : '') + padded;
 }
 
 /** Parse a value to an integer; returns NaN when blank / invalid. */
@@ -431,7 +440,7 @@ function setCards(text) {
 
 /** Update the summary cards from current state. */
 function updateDashboard() {
-  els.cardLastSerial.textContent = getCurrentLastSerial();
+  els.cardLastSerial.textContent = fmtSerial(getCurrentLastSerial());
   els.cardTotalDevicesReady.textContent = getLatestTotalDevicesReady();
   els.cardTotalDevicesPacked.textContent = getLatestTotalDevicesPacked();
   // In hand = ready (loose) + packed, both still on the premises
@@ -461,7 +470,8 @@ function renderHistoryTable(filterText = '') {
       if (!query) return true;
       const dateStr = formatDate(e.date).toLowerCase();
       const serialStr = String(e.serial);
-      return dateStr.includes(query) || serialStr.includes(query);
+      const serialPad = fmtSerial(e.serial);
+      return dateStr.includes(query) || serialStr.includes(query) || serialPad.includes(query);
     });
 
   // Build all rows in one pass, then swap in — avoids layout thrash.
@@ -471,7 +481,7 @@ function renderHistoryTable(filterText = '') {
       const off = isOffDay(e.date);
       return `
       <tr${off ? ' class="row-offday"' : ''}>
-        <td class="cell-serial">${e.serial}</td>
+        <td class="cell-serial">${fmtSerial(e.serial)}</td>
         <td class="cell-muted">${formatDate(e.date)}${off ? ' <span class="offday-badge">Off</span>' : ''}</td>
         <td class="ta-right cell-num">${e.devicesReady}</td>
         <td class="ta-right cell-num cell-strong">${e.totalDevicesReady}</td>
@@ -520,9 +530,9 @@ function updateSerialPreview() {
   const printed = Number.isNaN(prRaw) ? 0 : Math.max(0, prRaw);
 
   // --- Serial box (hero) ---
-  els.currentSerial.textContent = base.serial;
+  els.currentSerial.textContent = fmtSerial(base.serial);
   const nextSerial = calculateNextSerialNumber(base.serial, devices);
-  setSerialText(els.newSerial, nextSerial);
+  setSerialText(els.newSerial, fmtSerial(nextSerial));
   if (devices > 0) {
     els.serialBox.classList.add('is-active');
     els.newSerial.classList.remove('serial-box__value--muted');
@@ -1095,7 +1105,7 @@ async function handleSubmit(event) {
   refreshDispatchedFromShipping(); // re-count dispatched for today
   els.packedInput.focus();
 
-  showToast('success', 'Production updated', `New last serial is ${newSerial}.`);
+  showToast('success', 'Production updated', `New last serial is ${fmtSerial(newSerial)}.`);
 }
 
 /** Briefly flash the top row after a successful save (if it's visible). */
