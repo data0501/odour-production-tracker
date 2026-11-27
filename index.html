@@ -31,7 +31,7 @@
     rel="stylesheet"
   />
 
-  <link rel="stylesheet" href="style.css?v=11" />
+  <link rel="stylesheet" href="style.css?v=12" />
 </head>
 <body>
   <!-- ============================= HEADER / APP BAR ============================= -->
@@ -83,6 +83,15 @@
   </header>
 
   <main class="container">
+    <!-- Device-type switch (GSM / Wi-Fi) — switches the WHOLE dashboard per type -->
+    <div class="type-switch">
+      <span class="type-switch__label">Device type</span>
+      <div class="type-switch__group" role="tablist" aria-label="Device type">
+        <button type="button" class="type-switch__btn is-active" id="typeGsmBtn" data-type="GSM" role="tab" aria-selected="true">GSM</button>
+        <button type="button" class="type-switch__btn" id="typeWifiBtn" data-type="WIFI" role="tab" aria-selected="false">Wi-Fi</button>
+      </div>
+    </div>
+
     <!-- ============================= SECTION 1 · SUMMARY CARDS ============================= -->
     <section aria-labelledby="summary-heading">
       <h2 id="summary-heading" class="visually-hidden">Production summary</h2>
@@ -385,7 +394,7 @@
   </div>
 
   <!-- App logic (data layer, serial calc, table, validation) -->
-  <script src="script.js?v=11"></script>
+  <script src="script.js?v=12"></script>
 
   <!-- Theme toggle wiring (kept here so script.js stays untouched) -->
   <script>
