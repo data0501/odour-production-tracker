@@ -263,9 +263,10 @@ async function fetchReadyCount(dateDDMMYYYY, type) {
  * YYYY-MM-DD) — rows in SHIPPING DATA whose PACKED DATE is that day.
  * Returns { date, count }.
  */
-async function fetchDispatchedCount(isoDate) {
+async function fetchDispatchedCount(isoDate, type) {
   const url = CONFIG.APPS_SCRIPT_URL
     + '?action=dispatchedCount&date=' + encodeURIComponent(isoDate)
+    + '&type=' + encodeURIComponent(type || 'GSM')
     + '&t=' + Date.now();
   const res = await fetchWithRetry(url, { method: 'GET' });
   if (!res.ok) throw new Error('Dispatched-count failed with status ' + res.status);
@@ -654,14 +655,6 @@ function setDispatchedMode(mode, info) {
   field.classList.remove('is-loading', 'is-error');
   hint.classList.remove('field__hint--error');
 
-  if (mode === 'wifi') {
-    input.readOnly = true;
-    input.value = 0;
-    els.recountDispatchedBtn.disabled = true;
-    hint.textContent = "Dispatched is tracked under GSM (shipping data isn't split by type).";
-    return;
-  }
-
   if (mode === 'loading') {
     input.readOnly = true;
     input.value = '';
@@ -696,15 +689,6 @@ function setDispatchedMode(mode, info) {
 async function refreshDispatchedFromShipping() {
   const iso = (els.dateInput && els.dateInput.value) ? els.dateInput.value : todayISO();
 
-  // Dispatched is combined and attributed to GSM only; Wi-Fi shows 0.
-  if (currentType !== 'GSM') {
-    dispatchedCountToken++;        // cancel any in-flight GSM fetch
-    setDispatchedMode('wifi');
-    clearFieldError('dispatched');
-    updateSerialPreview();
-    return;
-  }
-
   if (!backendEnabled()) {
     setDispatchedMode('manual');
     return;
@@ -713,7 +697,7 @@ async function refreshDispatchedFromShipping() {
   const myToken = ++dispatchedCountToken;
   setDispatchedMode('loading');
   try {
-    const result = await fetchDispatchedCount(iso);
+    const result = await fetchDispatchedCount(iso, currentType);
     if (myToken !== dispatchedCountToken) return;
     els.dispatchedInput.value = Number(result && result.count) || 0;
     setDispatchedMode('ok', result);
@@ -1039,7 +1023,7 @@ async function handleSubmit(event) {
 
   const devices = toInt(els.devicesInput.value);
   const packed = toInt(els.packedInput.value);
-  const dispatched = (currentType === 'GSM') ? toInt(els.dispatchedInput.value) : 0;
+  const dispatched = toInt(els.dispatchedInput.value);
   const printed = toInt(els.casesInput.value);
   const entryDate = els.dateInput.value || todayISO();
 
