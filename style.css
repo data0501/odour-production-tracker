@@ -880,3 +880,55 @@ tr.row-offday:hover td {
   0%, 100% { opacity: 1; }
   50%      { opacity: .55; }
 }
+
+/* ========================= DEVICE-TYPE SWITCH (GSM / Wi-Fi) ============== */
+.type-switch {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+}
+.type-switch__label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+}
+/* Segmented control */
+.type-switch__group {
+  display: inline-flex;
+  padding: 4px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: var(--shadow-sm);
+  transition: background-color var(--theme-dur) var(--ease), border-color var(--theme-dur) var(--ease);
+}
+.type-switch__btn {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px 22px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--muted);
+  background: transparent;
+  border-radius: 999px;
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease),
+              box-shadow var(--dur) var(--ease);
+}
+.type-switch__btn:hover { color: var(--text); }
+.type-switch__btn.is-active {
+  color: var(--on-primary);
+  background: var(--primary);
+  box-shadow: 0 2px 8px var(--primary-shadow);
+}
+.type-switch__btn:focus-visible { outline: 3px solid var(--primary-ring); outline-offset: 2px; }
+
+@media (max-width: 400px) {
+  .type-switch__btn { padding: 8px 18px; flex: 1; }
+  .type-switch__group { width: 100%; }
+}
